@@ -1,0 +1,175 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.140'
+    id 'org.jetbrains.kotlin.jvm' version '2.3.0'
+    id 'org.jetbrains.kotlin.plugin.lombok' version '2.1.20'
+    id 'io.freefair.lombok' version "9.2.0"
+}
+
+version = mod_version
+group = maven_group
+
+configurations {
+    libraries
+    api.extendsFrom libraries
+
+    localImplementation
+    runtimeClasspath.extendsFrom localImplementation
+    compileOnly.extendsFrom localImplementation
+
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+    maven { url = "https://maven.shedaniel.me/" }
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content { includeGroup "maven.modrinth" }
+    }
+    maven { name = "Jared's maven"; url = "https://maven.blamejared.com/" }
+    maven { name = "ModMaven"; url = "https://modmaven.dev" }
+    maven { url = "https://maven.parchmentmc.org" }
+    maven { url = "https://maven.quiltmc.org/repository/release" }
+    maven { url = "https://maven.tterrag.com/"; content { includeGroup("com.jozufozu.flywheel") } }
+    maven { url = "https://maven.theillusivec4.top/" }
+    maven { url = "https://maven.terraformersmc.com/releases/" }
+    maven { url = "https://maven.tterrag.com/"; content { includeGroup("com.tterrag.registrate"); includeGroup("com.simibubi.create") } }
+    maven { url = "https://jitpack.io/" }
+    maven { url = "https://maven.latvian.dev/releases"; content { includeGroup "dev.latvian.mods"; includeGroup "dev.latvian.apps" } }
+}
+
+base { archivesName = "${archives_name}" }
+
+java {
+    withSourcesJar()
+}
+
+kotlin {
+    jvmToolchain(25)
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-parameters")
+        freeCompilerArgs.add("-Xwhen-guards")
+    }
+}
+
+neoForge {
+    version = project.neo_version
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+            sourceSet(project(':common').sourceSets.main)
+        }
+    }
+    unitTest {
+        enable()
+        testedMod = mods.getByName(mod_id)
+    }
+
+    runs {
+        client {
+            client()
+            ideName = "Run Client"
+        }
+        server {
+            server()
+            ideName = "Run Server"
+            programArgument("--nogui")
+        }
+    }
+}
+
+
+
+// Make test classpath inherit from main classpath (moddev plugin doesn't propagate automatically)
+configurations {
+    testImplementation.extendsFrom(implementation)
+    testCompileOnly.extendsFrom(compileClasspath)
+    testRuntimeOnly.extendsFrom(runtimeClasspath)
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+sourceSets.main.kotlin { srcDir("src/main/java") }
+
+dependencies {
+    // Architectury multi-loader: exclude Fabric deps that leak transitively from :common
+    implementation(project(':common')) {
+        exclude group: 'net.fabricmc'
+        exclude module: 'sponge-mixin'
+    }
+    // Embed common classes in NeoForge jar via JarJar (moddev's classloader needs them)
+    jarJar project(':common')
+    implementation "net.neoforged:neoforge:${neo_version}"
+    jarJar(libraries(group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib')) {
+        version { prefer "${kotlin_stdlib_version}" }
+    }
+    compileOnly("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}") { transitive = false }
+    compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}") { transitive = false }
+    localRuntime("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
+    jarJar(libraries(group: 'dev.vfyjxf', name: 'taffy')) {
+        version { prefer "${taffy_version}" }
+    }
+    testImplementation(project(':common')) {
+        exclude group: 'net.fabricmc'
+        exclude module: 'sponge-mixin'
+    }
+    testImplementation "net.neoforged:neoforge:${neo_version}"
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
+    testImplementation 'org.mockito:mockito-core:5.5.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.5.0'
+}
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [minecraft_version      : minecraft_version,
+                             minecraft_version_range: minecraft_version_range,
+                             neo_version            : neo_version,
+                             neo_version_range      : neo_version_range,
+                             jei_version_range      : jei_version_range,
+                             loader_version_range   : loader_version_range,
+                             mod_id                 : mod_id,
+                             mod_name               : mod_name,
+                             mod_url                : mod_url,
+                             mod_authors            : mod_authors,
+                             mod_license            : mod_license,
+                             mod_version            : mod_version,
+                             mod_description        : mod_description]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+        showStandardStreams = false
+    }
+}
+
+// In-client UI test harness: -PldTest wiring plus the verifyUiTest gate.
+apply from: rootProject.file('gradle/ldlib2-uitest.gradle')
+
+tasks.named('jarJar') { }
+
+tasks.register("printVersion") { println(mod_version) }
+
+
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

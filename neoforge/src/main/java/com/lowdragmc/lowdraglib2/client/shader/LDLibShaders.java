@@ -1,0 +1,96 @@
+package com.lowdragmc.lowdraglib2.client.shader;
+
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormatElement;
+import org.lwjgl.opengl.GL;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static com.mojang.blaze3d.vertex.VertexFormatElement.POSITION;
+
+public class LDLibShaders {
+	private static final Logger LOGGER = LoggerFactory.getLogger("LDLibShaders");
+
+	/**
+	 * the vertex format for HSB color, three four of float
+	 */
+	public static final VertexFormatElement HSB_Alpha = VertexFormatElement.register(VertexFormatElement.findNextId(), 0, VertexFormatElement.Type.FLOAT, false, 4);
+
+	public static VertexFormat HSB_VERTEX_FORMAT = VertexFormat.builder()
+			.add("Position", POSITION)
+			.add("HSB_ALPHA", HSB_Alpha)
+			.build();
+
+	/**
+	 * Vertex format elements for analytic rounded-rect rendering.
+	 * RectParams: (halfW*8, halfH*8, border*8, 0) as SHORT×4
+	 * Radius: (rTL*8, rTR*8, rBR*8, rBL*8) as SHORT×4
+	 */
+	public static final VertexFormatElement RECT_PARAMS = VertexFormatElement.register(
+			VertexFormatElement.findNextId(), 0, VertexFormatElement.Type.SHORT, false, 4);
+
+	public static final VertexFormatElement RECT_RADIUS = VertexFormatElement.register(
+			VertexFormatElement.findNextId(), 0, VertexFormatElement.Type.SHORT, false, 4);
+
+	public static final VertexFormat ROUNDED_RECT_FORMAT = VertexFormat.builder()
+			.add("Position", POSITION)
+			.add("Color", VertexFormatElement.COLOR)
+			.add("RectParams", RECT_PARAMS)
+			.add("Radius", RECT_RADIUS)
+			.build();
+
+	/**
+	 * Fixed point scale for the SDF tuning carried in {@link #SDF_TEXT_FORMAT}'s UV1 channel.
+	 * <p>
+	 * Sharpness tops out at 4.0 and weight at +-0.5 (see {@code LDLibClientConfig}), so 4096 keeps both well
+	 * inside a signed short while leaving far more precision than either value is ever tuned to.
+	 */
+	public static final float SDF_PARAM_SCALE = 4096f;
+
+	/**
+	 * Vanilla's text format with the overlay channel repurposed to carry the SDF tuning (sharpness, weight).
+	 * <p>
+	 * 26.1 has no hook to bind a custom uniform buffer for a glyph draw: the GUI renderer owns the render pass
+	 * and {@link net.minecraft.client.renderer.state.gui.GuiElementRenderState} only exposes the pipeline, the
+	 * textures and the vertices. UV1 is used rather than a newly registered element because
+	 * {@code VertexConsumer#setUv1} is part of the interface, so glyph quads keep working through wrapping
+	 * consumers; a custom element can only be written by poking at a {@code BufferBuilder} directly, and a
+	 * vertex that leaves one unfilled is rejected outright.
+	 */
+	public static final VertexFormat SDF_TEXT_FORMAT = VertexFormat.builder()
+			.add("Position", POSITION)
+			.add("Color", VertexFormatElement.COLOR)
+			.add("UV0", VertexFormatElement.UV0)
+			.add("UV1", VertexFormatElement.UV1)
+			.add("UV2", VertexFormatElement.UV2)
+			.build();
+
+	static {
+		LOGGER.info("=== LDLibShaders vertex element debug ===");
+		LOGGER.info("POSITION: id={}, byteSize={}", POSITION.id(), POSITION.byteSize());
+		LOGGER.info("COLOR: id={}, byteSize={}", VertexFormatElement.COLOR.id(), VertexFormatElement.COLOR.byteSize());
+		LOGGER.info("HSB_Alpha: id={}, byteSize={}, type={}, count={}, index={}",
+				HSB_Alpha.id(), HSB_Alpha.byteSize(), HSB_Alpha.type(), HSB_Alpha.count(), HSB_Alpha.index());
+		LOGGER.info("RECT_PARAMS: id={}, byteSize={}, type={}, count={}, index={}",
+				RECT_PARAMS.id(), RECT_PARAMS.byteSize(), RECT_PARAMS.type(), RECT_PARAMS.count(), RECT_PARAMS.index());
+		LOGGER.info("RECT_RADIUS: id={}, byteSize={}, type={}, count={}, index={}",
+				RECT_RADIUS.id(), RECT_RADIUS.byteSize(), RECT_RADIUS.type(), RECT_RADIUS.count(), RECT_RADIUS.index());
+		LOGGER.info("HSB_VERTEX_FORMAT: stride={}, elements={}", HSB_VERTEX_FORMAT.getVertexSize(), HSB_VERTEX_FORMAT.getElements().size());
+		LOGGER.info("ROUNDED_RECT_FORMAT: stride={}, elements={}", ROUNDED_RECT_FORMAT.getVertexSize(), ROUNDED_RECT_FORMAT.getElements().size());
+		LOGGER.info("SDF_TEXT_FORMAT: stride={}, elements={}", SDF_TEXT_FORMAT.getVertexSize(), SDF_TEXT_FORMAT.getElements().size());
+		LOGGER.info("Vanilla POSITION_COLOR: stride={}", DefaultVertexFormat.POSITION_COLOR.getVertexSize());
+		LOGGER.info("=== End LDLibShaders debug ===");
+	}
+
+	@Deprecated
+	public static boolean supportComputeShader() {
+		return GL.getCapabilities().GL_ARB_compute_shader;
+	}
+
+	@Deprecated
+	public static boolean supportSSBO() {
+		return GL.getCapabilities().GL_ARB_shader_storage_buffer_object;
+	}
+
+}

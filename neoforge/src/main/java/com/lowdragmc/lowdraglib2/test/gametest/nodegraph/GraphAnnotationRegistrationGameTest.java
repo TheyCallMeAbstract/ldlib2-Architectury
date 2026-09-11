@@ -1,0 +1,89 @@
+package com.lowdragmc.lowdraglib2.test.gametest.nodegraph;
+
+import com.lowdragmc.lowdraglib2.test.noddegraphtoolkit.*;
+import net.minecraft.core.Holder;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.TestData;
+import net.minecraft.gametest.framework.TestEnvironmentDefinition;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
+
+import java.util.Set;
+
+public final class GraphAnnotationRegistrationGameTest {
+    private static final String NODE_TYPES_PATH = "graph_annotation_node_types";
+    private static final String UNBOUND_NODE_PATH = "graph_annotation_unbound_node";
+    private static final String PORT_ORIENTATION_FOLLOW_BUILDER_PATH = "port_orientation_follows_builder";
+
+    private GraphAnnotationRegistrationGameTest() {
+    }
+
+    static void registerFunctions() {
+        NodeGraphGameTests.registerFunction(NODE_TYPES_PATH, GraphAnnotationRegistrationGameTest::nodeTypesAreRegistered);
+        NodeGraphGameTests.registerFunction(UNBOUND_NODE_PATH, GraphAnnotationRegistrationGameTest::unboundNodeIsInOtherGraphRegistry);
+        NodeGraphGameTests.registerFunction(PORT_ORIENTATION_FOLLOW_BUILDER_PATH, GraphAnnotationRegistrationGameTest::portOrientationFollowsBuilder);
+    }
+
+    static void register(RegisterGameTestsEvent event, Holder<TestEnvironmentDefinition<?>> environment) {
+        TestData<Holder<TestEnvironmentDefinition<?>>> testData = NodeGraphGameTests.defaultTestData(environment, "empty");
+        NodeGraphGameTests.registerFunctionTest(event, NODE_TYPES_PATH, NodeGraphGameTests.functionKey(NODE_TYPES_PATH), testData);
+        NodeGraphGameTests.registerFunctionTest(event, UNBOUND_NODE_PATH, NodeGraphGameTests.functionKey(UNBOUND_NODE_PATH), testData);
+        NodeGraphGameTests.registerFunctionTest(event, PORT_ORIENTATION_FOLLOW_BUILDER_PATH, NodeGraphGameTests.functionKey(PORT_ORIENTATION_FOLLOW_BUILDER_PATH), testData);
+    }
+
+    private static void nodeTypesAreRegistered(GameTestHelper helper) {
+        var expectedNodeKeys = Set.of("test_add", "test_constant", "test_concat", "test_color_blend");
+        for (var key : expectedNodeKeys) {
+            if (TestGraph.NODE_REGISTRY.get(key) == null) {
+                helper.fail("Missing registered node type: " + key);
+                return;
+            }
+        }
+
+        if (TestGraph.NODE_REGISTRY.get("unbound_test_node") != null) {
+            helper.fail("Node bound to another graph should not be in TestGraph registry");
+            return;
+        }
+
+        if (TestGraph.NODE_REGISTRY.get("mod_filtered_test_node") != null) {
+            helper.fail("modID filtered node should not be registered");
+            return;
+        }
+
+        helper.succeed();
+    }
+
+    public static void portOrientationFollowsBuilder(GameTestHelper helper) {
+        var graph = new TestGraph();
+        var node = graph.graphModel.createNodeModel(new TestVerticalNode(), new org.joml.Vector2f(0, 0));
+
+        var inputs = node.getInputsById();
+        var outputs = node.getOutputsById();
+
+        if (inputs.get("v_in1") == null
+                || inputs.get("v_in1").getOrientation() != com.lowdragmc.lowdraglib2.nodegraphtookit.api.port.PortOrientation.Vertical) {
+            helper.fail("v_in1 should be a Vertical input port"); return;
+        }
+        if (inputs.get("h_in") == null
+                || inputs.get("h_in").getOrientation() != com.lowdragmc.lowdraglib2.nodegraphtookit.api.port.PortOrientation.Horizontal) {
+            helper.fail("h_in should be a Horizontal input port"); return;
+        }
+        if (outputs.get("v_out1") == null
+                || outputs.get("v_out1").getOrientation() != com.lowdragmc.lowdraglib2.nodegraphtookit.api.port.PortOrientation.Vertical) {
+            helper.fail("v_out1 should be a Vertical output port"); return;
+        }
+        if (outputs.get("h_out") == null
+                || outputs.get("h_out").getOrientation() != com.lowdragmc.lowdraglib2.nodegraphtookit.api.port.PortOrientation.Horizontal) {
+            helper.fail("h_out should be a Horizontal output port"); return;
+        }
+
+        helper.succeed();
+    }
+
+    private static void unboundNodeIsInOtherGraphRegistry(GameTestHelper helper) {
+        if (AnnotatedOtherGraph.NODE_REGISTRY.get("unbound_test_node") == null) {
+            helper.fail("unbound_test_node should be in AnnotatedOtherGraph registry");
+            return;
+        }
+        helper.succeed();
+    }
+}

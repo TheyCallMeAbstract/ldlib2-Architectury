@@ -1,0 +1,186 @@
+// LDLib2 in-client UI test harness - Gradle wiring.
+//
+// Copy this file into your mod and add:
+//
+//     apply from: rootProject.file('gradle/ldlib2-uitest.gradle')
+//
+// Then:  gradlew runClient -PldTest=all
+// Docs:  https://github.com/Low-Drag-MC/LDLib2 -> docs/uitest.md
+//
+// Inert unless -PldTest is given, and scoped to the invocation that gives it: nothing is written to
+// build/moddev, so a later `gradlew runClient` - or a launch from the IDE, which reuses whatever
+// ModDev last wrote there - is completely unaffected.
+//
+// The one thing every run task carries unconditionally is the early-window check at the bottom, which
+// is two File.exists() calls and does nothing without a marker to act on. It has to run on the plain
+// invocation precisely because that is what undoes what a -PldTestHeadless one left behind.
+
+// A captured local, not an ext property: inside a run/task closure `ext` resolves to the closure's
+// delegate rather than the project, so ldTestOutDir would not be visible where it is needed.
+def ldTestOutDir = layout.buildDirectory.dir('ldlib2-uitest').get().asFile.absolutePath
+def ldTestRequested = project.hasProperty('ldTest')
+
+// -PldTestHeadless: run without a visible window, on a machine that need not have a monitor at all.
+// For a display-less build box, a locked console, or a run triggered over SSH.
+//
+// Rejected here rather than only in RunConfig so it costs nothing: the runner reads its config from a
+// frame hook, so the guard down there turns a typo into a crash report several minutes into a launch.
+// Real input drives the OS cursor and needs the window focused, and a hidden one has no focus to give,
+// so this combination would pass while testing nothing.
+def ldTestHeadless = project.hasProperty('ldTestHeadless')
+if (ldTestHeadless && 'REAL'.equalsIgnoreCase(project.findProperty('ldTestInputMode')?.toString())) {
+    throw new GradleException("-PldTestInputMode=REAL cannot be combined with -PldTestHeadless: " +
+            "real input drives the OS cursor and needs the window focused.")
+}
+
+// System properties rather than program arguments: Minecraft's own argument parser owns the command
+// line and rejects what it does not recognise.
+//
+// Resolved here, once, rather than inside the task closure: with the configuration cache on, a body
+// that runs later may not reach back into `project`.
+def ldTestJvmArgs = []
+if (ldTestRequested) {
+    ldTestJvmArgs = [
+            "-Dldlib2.uitest.run=${project.property('ldTest')}",
+            "-Dldlib2.uitest.out=${ldTestOutDir}",
+            "-Dldlib2.uitest.exclude=${project.findProperty('ldTestExclude') ?: ''}",
+            // Run-wide default; individual scenarios override it via ScenarioOptions#guiScale.
+            "-Dldlib2.uitest.guiScale=${project.findProperty('ldTestGuiScale') ?: '2'}",
+            // Empty = maximise. Pass e.g. -PldTestWindow=1280x720 to pin a size for comparable captures.
+            "-Dldlib2.uitest.window=${project.findProperty('ldTestWindow') ?: ''}",
+            "-Dldlib2.uitest.inputMode=${project.findProperty('ldTestInputMode') ?: 'SYNTHETIC'}",
+            "-Dldlib2.uitest.watchdogSec=${project.findProperty('ldTestWatchdogSec') ?: '90'}",
+    ]*.toString()
+    if (project.hasProperty('ldTestKeepOpen')) {
+        ldTestJvmArgs += '-Dldlib2.uitest.keepOpen=true'
+    }
+}
+
+// Turns report.json into a build failure.
+//
+// Attached with finalizedBy so it runs even when runClient itself fails - a crash before the report
+// is written is exactly the case that must not pass silently, so a missing report is a failure too.
+// Captured outside the task closures: with the configuration cache on, a doLast/onlyIf body may
+// not reach back into `project` at execution time, and both `file(...)` and `hasProperty` do.
+def ldTestOutFile = file(ldTestOutDir)
+
+tasks.register('verifyUiTest') {
+    group = 'verification'
+    description = 'Fails the build if the LDLib2 in-client UI test report contains failures.'
+    onlyIf { ldTestRequested }
+    doLast {
+        def dir = ldTestOutFile
+        def reportFile = new File(dir, 'report.json')
+        if (!reportFile.exists()) {
+            throw new GradleException("LDLib2 UI test: no report at ${reportFile}.\n" +
+                    "The client crashed, never reached the runner, or -PldTest matched no scenarios.")
+        }
+        def report = new groovy.json.JsonSlurper().parse(reportFile)
+        logger.lifecycle("LDLib2 UI test: ${report.totals.passed}/${report.totals.scenarios} scenarios passed, " +
+                "${report.totals.checks - report.totals.checksFailed}/${report.totals.checks} checks passed " +
+                "in ${report.durationMs} ms")
+        report.scenarios.findAll { it.status != 'PASS' }.each { scenario ->
+            logger.error("FAILED scenario '${scenario.name}' (${scenario.className})")
+            if (scenario.error) logger.error("  ${scenario.error.type}: ${scenario.error.message}")
+            scenario.steps.findAll { it.status != 'PASS' }.each { step ->
+                logger.error("  step ${step.index} [${step.kind}] ${step.name} -> ${step.status}")
+                if (step.error) logger.error("    error: ${step.error.message}")
+                step.checks.findAll { !it.passed }.each { check ->
+                    logger.error("    check '${check.desc}'" +
+                            (check.expected != null ? " expected=${check.expected} actual=${check.actual}" : ""))
+                }
+                step.captures.each { logger.error("    shot: ${new File(dir, it.path)}") }
+            }
+        }
+        if (report.status != 'PASS') {
+            throw new GradleException("LDLib2 UI test ${report.status} - full report: ${reportFile}")
+        }
+    }
+}
+
+// Clears last run's output before runClient starts. verifyUiTest reads whatever report.json is on
+// disk, so a client that dies before the runner even starts - an unresolvable class path, a crash
+// during mod loading - would otherwise be reported with the *previous* run's verdict. Removing it up
+// front is what makes "no report is a failure" actually fire.
+//
+// A task runClient depends on, and not a doFirst on runClient: Gradle resolves and snapshots a
+// task's inputs BEFORE it runs any of its actions, so a runtimeClasspath that does not resolve fails
+// the task with its doFirst never reached - and an unresolvable class path is one of the two cases
+// this exists for. Observed, not theorised: a run against an LDLib2 whose new JEI dependency was on
+// no configured repository failed in ':runClient' at resolution, and verifyUiTest went on to report
+// the previous run's "1/1 scenarios passed, 72/72 checks passed" as this run's result. ModDev's
+// RunGameTask declares its class path as @Classpath @InputFiles, so it snapshots the same way
+// NeoGradle's did.
+tasks.register('ldlib2CleanUiTestReport') {
+    onlyIf { ldTestRequested }
+    doLast { ldTestOutFile.deleteDir() }
+}
+
+// The run tasks are created after this script is evaluated, so runClient cannot be looked up by
+// name here - match it lazily instead.
+tasks.configureEach { task ->
+    if (task.name != 'runClient') return
+    task.finalizedBy 'verifyUiTest'
+    task.dependsOn 'ldlib2CleanUiTestReport'
+
+    // On the task, not on `neoForge.runs.client`. That distinction is the whole difference between a
+    // flag that applies to this invocation and one that applies forever:
+    //
+    //   - a run definition is a persistent declaration. ModDev serialises it to
+    //     build/moddev/clientRunVmArgs.txt, and the IDE run configuration it generates passes that
+    //     same file as its VM parameters - with no Gradle task before launch, so nothing ever
+    //     rewrites it. One `-PldTest` run therefore left every later launch from the IDE running the
+    //     whole suite, with nothing in the IDE to suggest it would.
+    //   - jvmArgs on the task are assembled when the task runs and go nowhere else. Which is also
+    //     what this did under NeoGradle, where runClient built its own command line and the IDE
+    //     configuration carried its arguments inline: two paths that could not contaminate each
+    //     other. ModDev merged them into one file; this keeps them apart again.
+    if (!ldTestJvmArgs.isEmpty()) {
+        task.jvmArgs ldTestJvmArgs
+    }
+}
+
+// Headless, applied to every ModDev run task rather than just the client's: headless is a property
+// of the machine, so a box that cannot show one window cannot show a shard's or a multi-process
+// client's either. The system property is inert in a run that has no UI test runner in it.
+//
+// A JavaExec with a `gameDirectory` is what identifies one: RunGameTask extends JavaExec and has
+// that property, runParTest and runMpTest are JavaExecs without it, and PrepareRun has one without
+// being a JavaExec. Reading gameDirectory rather than `workingDir`, which RunGameTask only sets from
+// its @TaskAction - after every doFirst has already run.
+//
+// The flag goes on the task for the same reason the -PldTest flags do: on the run definition it
+// would be serialised into build/moddev/<name>RunVmArgs.txt and every later IDE launch would come up
+// with its window hidden, with nothing in the IDE to say why.
+tasks.configureEach { task ->
+    if (!(task instanceof JavaExec) || !task.hasProperty('gameDirectory')) return
+    if (ldTestHeadless) {
+        task.jvmArgs '-Dldlib2.uitest.headless=true'
+    }
+    // FML's early loading window calls glfwGetPrimaryMonitor and treats NULL as fatal, so on a
+    // machine with no monitor it dies long before Minecraft is reached - and it dies behind a modal
+    // dialog nobody is there to dismiss, so the run hangs rather than fail
+    task.doFirst { t ->
+        def dir = t.gameDirectory.get().asFile
+        def toml = new File(dir, 'config/fml.toml')
+        def marker = new File(dir, 'config/.ldlib2-early-window-flipped')
+        if (ldTestHeadless) {
+            if (!toml.exists()) {
+                toml.parentFile.mkdirs()
+                toml.text = 'earlyWindowControl = false' + System.lineSeparator()
+                marker.text = 'seeded by ldlib2-uitest.gradle' + System.lineSeparator()
+                t.logger.lifecycle("LDLib2 UI test: seeded ${toml} with earlyWindowControl = false")
+            } else if (toml.text.contains('earlyWindowControl = true')) {
+                toml.text = toml.text.replace('earlyWindowControl = true', 'earlyWindowControl = false')
+                marker.text = 'flipped by ldlib2-uitest.gradle' + System.lineSeparator()
+                t.logger.lifecycle("LDLib2 UI test: disabled the FML early window in ${toml}")
+            }
+        } else if (marker.exists()) {
+            if (toml.exists() && toml.text.contains('earlyWindowControl = false')) {
+                toml.text = toml.text.replace('earlyWindowControl = false', 'earlyWindowControl = true')
+                t.logger.lifecycle("LDLib2 UI test: restored the FML early window in ${toml}")
+            }
+            marker.delete()
+        }
+    }
+}
