@@ -1,6 +1,6 @@
 package com.lowdragmc.lowdraglib2.client.scene;
 
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.MeshDataAccessor;
 import com.lowdragmc.lowdraglib2.math.Position;
 import com.lowdragmc.lowdraglib2.math.PositionedRect;
 import com.lowdragmc.lowdraglib2.math.Size;
@@ -962,7 +962,7 @@ public abstract class WorldSceneRenderer {
             if (indexSource != null && indexBuilder != null) {
                 ByteBufferBuilder.Result indexResult = copyBuffer(indexSource, indexBuilder);
                 if (indexResult != null) {
-                    AccessorHelper.setIndexBuffer(drawMesh, indexResult);
+                    ((MeshDataAccessor) (Object) drawMesh).setIndexBuffer(indexResult);
                 }
             }
 

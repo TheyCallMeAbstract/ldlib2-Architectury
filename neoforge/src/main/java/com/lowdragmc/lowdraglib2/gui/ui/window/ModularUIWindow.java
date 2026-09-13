@@ -5,7 +5,8 @@ import com.lowdragmc.lowdraglib2.client.window.OsWindowEvent;
 import com.lowdragmc.lowdraglib2.client.window.OsWindowHost;
 import com.lowdragmc.lowdraglib2.client.window.OsWindowManager;
 import com.lowdragmc.lowdraglib2.client.RenderTargetScope;
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.GameRendererAccessor;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.PictureInPictureRendererPoolAccessor;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUIClientAccess;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -708,7 +709,7 @@ public class ModularUIWindow implements OsWindowHost {
             device.createCommandEncoder().clearColorAndDepthTextures(colorTexture, 0, target.getDepthTexture(), 1.0);
 
             var guiRenderer = ensureRenderer();
-            AccessorHelper.setRenderState(guiRenderer, state);
+            ((IGuiRendererExt) (Object) guiRenderer).ldlib2$setRenderState(state);
             try (var ignoredOutput = RenderTargetScope.redirect(colorView, target.getDepthTextureView())) {
                 IGuiRendererExt.ldlib2$pushTargetOverride(target);
                 IGuiRendererExt.ldlib2$pushOrthoOverride(
@@ -736,12 +737,13 @@ public class ModularUIWindow implements OsWindowHost {
      */
     private GuiRenderer ensureRenderer() {
         if (renderer == null) {
-            var main = AccessorHelper.getGuiRenderer(Minecraft.getInstance().gameRenderer);
+            var main = ((GameRendererAccessor) (Object) Minecraft.getInstance().gameRenderer).ldlib2$getGuiRenderer();
+            var mainExt = (IGuiRendererExt) (Object) main;
             var created = new GuiRenderer(
                     new GuiRenderState(),
-                    AccessorHelper.getBufferSource(main),
-                    AccessorHelper.getSubmitNodeCollector(main),
-                    AccessorHelper.getFeatureRenderDispatcher(main),
+                    mainExt.ldlib2$getBufferSource(),
+                    mainExt.ldlib2$getSubmitNodeCollector(),
+                    mainExt.ldlib2$getFeatureRenderDispatcher(),
                     List.of());
             // Take the game renderer's set of picture-in-picture renderers, but as pools of our
             // own. Two things go wrong otherwise:
@@ -754,11 +756,11 @@ public class ModularUIWindow implements OsWindowHost {
             //    this window's scene can be handed the renderer the game window just rendered its own
             //    scene into, and the blit then samples a texture drawn for somewhere else.
             var pools = new HashMap<Class<? extends PictureInPictureRenderState>, PictureInPictureRendererPool<?>>();
-            AccessorHelper.getPictureInPictureRendererPools(main).forEach((stateClass, pool) -> {
-                var factory = AccessorHelper.getPoolFactory(pool);
-                pools.put(stateClass, newPool(factory, AccessorHelper.getBufferSource(created)));
+            mainExt.ldlib2$getPictureInPictureRendererPools().forEach((stateClass, pool) -> {
+                var factory = ((PictureInPictureRendererPoolAccessor) pool).ldlib2$getFactory();
+                pools.put(stateClass, newPool(factory, mainExt.ldlib2$getBufferSource()));
             });
-            AccessorHelper.setPictureInPictureRendererPools(created, pools);
+            ((IGuiRendererExt) (Object) created).ldlib2$setPictureInPictureRendererPools(pools);
             renderer = created;
         }
         return renderer;

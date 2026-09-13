@@ -1,6 +1,6 @@
 package com.lowdragmc.lowdraglib2.client.utils;
 
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.MeshDataAccessor;
 import com.mojang.blaze3d.vertex.*;
 import it.unimi.dsi.fastutil.ints.IntConsumer;
 import org.apache.commons.lang3.mutable.MutableLong;
@@ -28,7 +28,9 @@ public class MeshDataSortResult {
     }
 
     public void applyTo(MeshData meshData) {
-        AccessorHelper.setIndexBuffer(meshData, indexBuffer);
+        if (meshData instanceof MeshDataAccessor accessor) {
+            accessor.setIndexBuffer(indexBuffer);
+        }
     }
 
     @Nullable

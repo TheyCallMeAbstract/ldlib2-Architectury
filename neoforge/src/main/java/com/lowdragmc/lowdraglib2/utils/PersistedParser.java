@@ -5,7 +5,7 @@ import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.Platform;
 import com.lowdragmc.lowdraglib2.configurator.annotation.ConfigSetter;
 import com.lowdragmc.lowdraglib2.configurator.annotation.Configurable;
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.DelegatingOpsAccessor;
 import com.lowdragmc.lowdraglib2.syncdata.IPersistedSerializable;
 import com.lowdragmc.lowdraglib2.syncdata.ManagedFieldUtils;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
@@ -17,7 +17,6 @@ import io.netty.buffer.ByteBuf;
 import lombok.experimental.UtilityClass;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.*;
-import net.minecraft.resources.*;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.RegistryOps;
@@ -94,7 +93,7 @@ public final class PersistedParser {
                             var valueOutput = TagValueOutput.createWithContext(reporter, provider);
                             persistedSerializable.serialize(valueOutput);
                             var tag = valueOutput.buildResult();
-                            if (ops == NbtOps.INSTANCE || ops instanceof DelegatingOps<?> delegatingOps && AccessorHelper.getDelegate(delegatingOps) == NbtOps.INSTANCE) {
+                            if (ops == NbtOps.INSTANCE || ops instanceof DelegatingOpsAccessor<?> accessor && accessor.getDelegate() == NbtOps.INSTANCE) {
                                 return (DataResult<T1>) DataResult.success(tag);
                             }
                             return DataResult.success(NbtOps.INSTANCE.convertTo(ops, tag));
@@ -311,7 +310,7 @@ public final class PersistedParser {
                                 var output = TagValueOutput.createWithContext(reporter, provider);
                                 serializable.serialize(output);
                                 var subDataTag = output.buildResult();
-                                var subData = (op == NbtOps.INSTANCE || op instanceof DelegatingOps<?> delegatingOps && AccessorHelper.getDelegate(delegatingOps) == NbtOps.INSTANCE) ?
+                                var subData = (op == NbtOps.INSTANCE || op instanceof DelegatingOpsAccessor<?> accessor && accessor.getDelegate() == NbtOps.INSTANCE) ?
                                         (T) subDataTag :
                                         NbtOps.INSTANCE.convertTo(op, subDataTag);
                                 if (subFlatten) {
@@ -427,7 +426,7 @@ public final class PersistedParser {
                         } else if (subFlatten) {
                             if (value instanceof ValueIOSerializable valueSerializable) {
                                 try (var reporter = new ProblemReporter.ScopedCollector(LDLib2.LOGGER)) {
-                                    if (op == NbtOps.INSTANCE || op instanceof DelegatingOps<?> delegatingOps && AccessorHelper.getDelegate(delegatingOps) == NbtOps.INSTANCE) {
+                                    if (op == NbtOps.INSTANCE || op instanceof DelegatingOpsAccessor<?> accessor && accessor.getDelegate() == NbtOps.INSTANCE) {
                                         valueSerializable.deserialize(TagValueInput.create(reporter, provider,
                                                 (CompoundTag) op.createMap(map.entries())));
                                     } else {

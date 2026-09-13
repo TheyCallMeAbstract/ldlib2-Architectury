@@ -1,7 +1,8 @@
 package com.lowdragmc.lowdraglib2.gui.ui.rendering;
 
 import com.lowdragmc.lowdraglib2.client.shader.LDLibRenderPipelines;
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.GameRendererAccessor;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.PictureInPictureRendererAccessor;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
@@ -62,12 +63,13 @@ public class VisualLayerPipRenderer extends PictureInPictureRenderer<VisualLayer
 
     private GuiRenderer ensureSubRenderer() {
         if (subRenderer == null) {
-            var mainRenderer = AccessorHelper.getGuiRenderer(Minecraft.getInstance().gameRenderer);
+            var mainRenderer = ((GameRendererAccessor)(Object) Minecraft.getInstance().gameRenderer).ldlib2$getGuiRenderer();
+            var mainExt = (IGuiRendererExt)(Object) mainRenderer;
             subRenderer = new GuiRenderer(
                     new GuiRenderState(),
-                    AccessorHelper.getBufferSource(mainRenderer),
-                    AccessorHelper.getSubmitNodeCollector(mainRenderer),
-                    AccessorHelper.getFeatureRenderDispatcher(mainRenderer),
+                    mainExt.ldlib2$getBufferSource(),
+                    mainExt.ldlib2$getSubmitNodeCollector(),
+                    mainExt.ldlib2$getFeatureRenderDispatcher(),
                     List.of(new PictureInPictureRendererRegistration<>(
                             VisualLayerPipState.class, VisualLayerPipRenderer::new))
             );
@@ -118,13 +120,14 @@ public class VisualLayerPipRenderer extends PictureInPictureRenderer<VisualLayer
         int width = subColorView.getWidth(0);
         int height = subColorView.getHeight(0);
         var sub = ensureSubRenderer();
+        var subExt = (IGuiRendererExt)(Object) sub;
 
         inUse = true;
         try {
             // PASS 1: subtree → subtree off-target
             targetWrapper.bind(subColorView, subColorView.texture(), subDepthView,
                     subDepthView != null ? subDepthView.texture() : null, width, height);
-            AccessorHelper.setRenderState(sub, state.subState());
+            subExt.ldlib2$setRenderState(state.subState());
             IGuiRendererExt.ldlib2$pushTargetOverride(targetWrapper);
             try {
                 sub.render(IGuiRendererExt.ldlib2$getLastFogBuffer());
@@ -135,7 +138,7 @@ public class VisualLayerPipRenderer extends PictureInPictureRenderer<VisualLayer
 
             // PASSES 2 & 3: mask → mask off-target, then alpha-multiply into subtree off-target
             if (state.mask() != null) {
-                renderMaskAndComposite(state, sub, width, height,
+                renderMaskAndComposite(state, sub, subExt, width, height,
                         subColorView, subDepthView);
             }
         } finally {
@@ -144,7 +147,7 @@ public class VisualLayerPipRenderer extends PictureInPictureRenderer<VisualLayer
     }
 
     private void renderMaskAndComposite(
-            VisualLayerPipState state, GuiRenderer sub,
+            VisualLayerPipState state, GuiRenderer sub, IGuiRendererExt subExt,
             int width, int height, GpuTextureView subColorView, GpuTextureView subDepthView) {
 
         var mc = Minecraft.getInstance();
@@ -163,7 +166,7 @@ public class VisualLayerPipRenderer extends PictureInPictureRenderer<VisualLayer
         maskTargetWrapper.bind(maskColorView, maskColorTex, maskDepthView, maskDepthTex, width, height);
         RenderSystem.outputColorTextureOverride = maskColorView;
         RenderSystem.outputDepthTextureOverride = maskDepthView;
-        AccessorHelper.setRenderState(sub, maskState);
+        subExt.ldlib2$setRenderState(maskState);
         IGuiRendererExt.ldlib2$pushTargetOverride(maskTargetWrapper);
         try {
             sub.render(IGuiRendererExt.ldlib2$getLastFogBuffer());
@@ -191,7 +194,7 @@ public class VisualLayerPipRenderer extends PictureInPictureRenderer<VisualLayer
         // Switch outputs back to subtree off-target
         RenderSystem.outputColorTextureOverride = subColorView;
         RenderSystem.outputDepthTextureOverride = subDepthView;
-        AccessorHelper.setRenderState(sub, compositeState);
+        subExt.ldlib2$setRenderState(compositeState);
         IGuiRendererExt.ldlib2$pushTargetOverride(targetWrapper);
         targetWrapper.bind(subColorView, subColorView.texture(), subDepthView,
                 subDepthView != null ? subDepthView.texture() : null, width, height);
@@ -209,7 +212,7 @@ public class VisualLayerPipRenderer extends PictureInPictureRenderer<VisualLayer
         // Off-target is straight-alpha, so we premultiply opacity into rgb here:
         //   tint = (opacity, opacity, opacity, opacity)
         // shader does sample * tint, output is premultiplied.
-        GpuTextureView view = AccessorHelper.getTextureView(this);
+        GpuTextureView view = ((PictureInPictureRendererAccessor)(Object) this).ldlib2$getTextureView();
         int alpha = Math.round(Mth.clamp(state.opacity(), 0.0F, 1.0F) * 255.0F);
         int tint = ARGB.color(alpha, alpha, alpha, alpha);
         guiRenderState.addBlitToCurrentLayer(new BlitRenderState(

@@ -1,6 +1,6 @@
 package com.lowdragmc.lowdraglib2.uitest.input;
 
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.MouseHandlerAccessor;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUIClientAccess;
 import com.lowdragmc.lowdraglib2.gui.ui.utils.CursorOverlay;
@@ -118,7 +118,9 @@ public abstract class InputDriver {
         var minecraft = Minecraft.getInstance();
         if (!minecraft.mouseHandler.isMouseGrabbed()) return;
         GLFW.glfwSetInputMode(minecraft.getWindow().handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
-        AccessorHelper.setMouseGrabbed(minecraft.mouseHandler, false);
+        if (minecraft.mouseHandler instanceof MouseHandlerAccessor accessor) {
+            accessor.setMouseGrabbed(false);
+        }
     }
 
     protected void markHeld(int keyCode, boolean held) {

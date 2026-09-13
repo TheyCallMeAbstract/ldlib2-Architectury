@@ -1,8 +1,9 @@
 package com.lowdragmc.lowdraglib2.gui.ui;
 
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.MinecraftAccessor;
 import com.lowdragmc.lowdraglib2.gui.ColorPattern;
 import com.lowdragmc.lowdraglib2.gui.holder.DebugScreen;
+import com.lowdragmc.lowdraglib2.gui.holder.IAbstractContainerScreenExt;
 import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolder;
 import com.lowdragmc.lowdraglib2.gui.ui.event.CommandEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
@@ -33,16 +34,6 @@ import java.util.Arrays;
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 public final class ModularUIWidget implements GuiEventListener, NarratableEntry, Renderable, IModularUIHolder {
-    private static final java.lang.reflect.Field MODULAR_UI_MOUSE_RELEASED_MARK_FIELD;
-    static {
-        java.lang.reflect.Field f = null;
-        try {
-            f = AbstractContainerScreen.class.getDeclaredField("ldlib2$mouseReleasedMark");
-            f.setAccessible(true);
-        } catch (Exception ignored) {}
-        MODULAR_UI_MOUSE_RELEASED_MARK_FIELD = f;
-    }
-
     private final ModularUI modularUI;
     private long lastTick;
 
@@ -152,19 +143,11 @@ public final class ModularUIWidget implements GuiEventListener, NarratableEntry,
         // inspecting a button you had already pressed once would press it again. Ahead of the
         // double-dispatch guard below, so both of the two calls answer the same way.
         if (ModularUIClientAccess.pickingDebugger(modularUI) != null) return true;
-        var screen = ModularUIClientAccess.getScreen(getModularUI());
-        if (screen instanceof AbstractContainerScreen<?> containerScreen) {
-            // IAbstractContainerScreenExt interface may not be castable across JPMS modules.
-            // Use reflection as fallback.
-            try {
-                int mark = (int) MODULAR_UI_MOUSE_RELEASED_MARK_FIELD.get(containerScreen);
-                if (mark == lastMouseReleasedMark) {
-                    return lastMouseReleasedResult;
-                }
-                lastMouseReleasedMark = mark;
-            } catch (Exception ignored) {
-                // Interface not available, skip optimization
+        if (ModularUIClientAccess.getScreen(getModularUI()) instanceof IAbstractContainerScreenExt ext) {
+            if (ext.getLdlib2$mouseReleasedMark() == lastMouseReleasedMark) {
+                return lastMouseReleasedResult;
             }
+            lastMouseReleasedMark = ext.getLdlib2$mouseReleasedMark();
         }
         var mouseX = mouseButtonEvent.x();
         var mouseY = mouseButtonEvent.y();
@@ -471,8 +454,8 @@ public final class ModularUIWidget implements GuiEventListener, NarratableEntry,
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
-        if (modularUI.isTickWhileRending()) {
-            var currentTick = AccessorHelper.getClientTickCount(Minecraft.getInstance());
+        if (modularUI.isTickWhileRending() && Minecraft.getInstance() instanceof MinecraftAccessor accessor) {
+            var currentTick = accessor.ldlib2$getClientTickCount();
             if (currentTick != lastTick) {
                 modularUI.tick();
                 lastTick = currentTick;

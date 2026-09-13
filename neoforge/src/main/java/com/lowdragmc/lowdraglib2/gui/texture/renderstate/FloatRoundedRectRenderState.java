@@ -1,9 +1,8 @@
 package com.lowdragmc.lowdraglib2.gui.texture.renderstate;
 
 import com.lowdragmc.lowdraglib2.client.shader.LDLibShaders;
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.BufferBuilderAccessor;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
@@ -65,15 +64,15 @@ public record FloatRoundedRectRenderState(
                             short hws, short hhs, short bs,
                             short rTL, short rTR, short rBR, short rBL) {
         vc.addVertexWith2DPose(this.pose, px, py).setColor(this.color);
-        if (vc instanceof BufferBuilder bb) {
-            long i = AccessorHelper.beginElement(bb, LDLibShaders.RECT_PARAMS);
+        if (vc instanceof BufferBuilderAccessor accessor) {
+            long i = accessor.invokeBeginElement(LDLibShaders.RECT_PARAMS);
             if (i != -1L) {
                 MemoryUtil.memPutShort(i, hws);
                 MemoryUtil.memPutShort(i + 2L, hhs);
                 MemoryUtil.memPutShort(i + 4L, bs);
                 MemoryUtil.memPutShort(i + 6L, (short) 0);
             }
-            long j = AccessorHelper.beginElement(bb, LDLibShaders.RECT_RADIUS);
+            long j = accessor.invokeBeginElement(LDLibShaders.RECT_RADIUS);
             if (j != -1L) {
                 MemoryUtil.memPutShort(j, rTL);
                 MemoryUtil.memPutShort(j + 2L, rTR);

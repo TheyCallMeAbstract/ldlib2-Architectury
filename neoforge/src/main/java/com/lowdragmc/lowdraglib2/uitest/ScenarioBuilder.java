@@ -1,7 +1,7 @@
 package com.lowdragmc.lowdraglib2.uitest;
 
 import com.lowdragmc.lowdraglib2.client.LDLib2ClientRegistries;
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.MinecraftAccessor;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.UISurface;
@@ -931,6 +931,8 @@ public final class ScenarioBuilder {
     }
 
     private static long clientTick(TestContext ctx) {
-        return AccessorHelper.getClientTickCount(Minecraft.getInstance());
+        return Minecraft.getInstance() instanceof MinecraftAccessor accessor
+                ? accessor.ldlib2$getClientTickCount()
+                : 0L;
     }
 }

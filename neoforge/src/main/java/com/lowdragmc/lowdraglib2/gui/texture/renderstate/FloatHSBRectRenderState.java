@@ -1,9 +1,8 @@
 package com.lowdragmc.lowdraglib2.gui.texture.renderstate;
 
 import com.lowdragmc.lowdraglib2.client.shader.LDLibShaders;
-import com.lowdragmc.lowdraglib2.core.mixins.accessor.AccessorHelper;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.BufferBuilderAccessor;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
@@ -50,8 +49,8 @@ public record FloatHSBRectRenderState(
 
     private void emitVertex(VertexConsumer vc, float px, float py, float[] hsba) {
         vc.addVertexWith2DPose(this.pose, px, py);
-        if (vc instanceof BufferBuilder bb) {
-            long i = AccessorHelper.beginElement(bb, LDLibShaders.HSB_Alpha);
+        if (vc instanceof BufferBuilderAccessor accessor) {
+            long i = accessor.invokeBeginElement(LDLibShaders.HSB_Alpha);
             if (i != -1L) {
                 MemoryUtil.memPutFloat(i, hsba[0]);
                 MemoryUtil.memPutFloat(i + 4L, hsba[1]);
