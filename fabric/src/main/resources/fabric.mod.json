@@ -3,15 +3,15 @@
   "id": "ldlib2",
   "version": "${version}",
   "name": "LDLib2",
-  "description": "This is an example description! Tell everyone what your mod is about!",
+  "description": "LDLib2 — UI, rendering, synchronization, persistence, and in-game editors library",
   "authors": [
-    "Me!"
+    "TheyCallMeAbstract"
   ],
   "contact": {
-    "homepage": "https://fabricmc.net/",
-    "sources": "https://github.com/FabricMC/fabric-example-mod"
+    "homepage": "https://github.com/We-Are-Stardust/ldlib2",
+    "sources": "https://github.com/We-Are-Stardust/ldlib2"
   },
-  "license": "CC0-1.0",
+  "license": "MIT",
   "icon": "assets/ldlib2/icon.png",
   "environment": "*",
   "entrypoints": {
@@ -30,9 +30,7 @@
     "minecraft": "~26.1.2",
     "java": ">=25",
     "architectury": ">=20.0.12",
-    "fabric-api": "*"
-  },
-  "suggests": {
-    "another-mod": "*"
+    "fabric-api": "*",
+    "yet_another_config_lib": ">=3.9.1"
   }
 }
