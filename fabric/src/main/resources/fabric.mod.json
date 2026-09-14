@@ -19,7 +19,7 @@
       "com.lowdragmc.lowdraglib2.fabric.LDLib2Fabric"
     ],
     "client": [
-      "com.lowdragmc.lowdraglib2.fabric.client.ExampleModFabricClient"
+      "com.lowdragmc.lowdraglib2.fabric.client.LDLib2FabricClient"
     ]
   },
   "mixins": [

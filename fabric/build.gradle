@@ -1,5 +1,6 @@
 plugins {
     id 'com.gradleup.shadow'
+    id 'io.freefair.lombok' version "9.2.0"
 }
 
 architectury {
@@ -24,6 +25,15 @@ configurations {
     }
 }
 
+repositories {
+    maven { url = "https://maven.blamejared.com/" }
+    maven { url = "https://maven.isxander.dev/releases" }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs << '-Xmaxerrs' << '500'
+}
+
 dependencies {
     implementation "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
 
@@ -32,6 +42,21 @@ dependencies {
 
     // Architectury API. This is optional, and you can comment it out if you don't need it.
     implementation "dev.architectury:architectury-fabric:$rootProject.architectury_api_version"
+
+    // JSR 305 annotations (@Nonnull, @ParametersAreNonnullByDefault).
+    // NeoForge gets this transitively via Guava/findbugs, but Fabric needs it explicitly
+    // since common is transitive:false.
+    implementation 'com.google.code.findbugs:jsr305:3.0.2'
+
+    // Taffy layout engine (same as NeoForge jarJar)
+    implementation "dev.vfyjxf:taffy:$rootProject.taffy_version"
+
+    // YACL — config library for Fabric (replaces NeoForge ModConfigSpec)
+    implementation "dev.isxander:yet-another-config-lib:$rootProject.yacl_version"
+
+    // JEI — common API is shared across platforms, fabric-api is Fabric-specific
+    compileOnly("mezz.jei:jei-${rootProject.minecraft_version}-common-api:${rootProject.jei_version}") { transitive = false }
+    compileOnly("mezz.jei:jei-${rootProject.minecraft_version}-fabric-api:${rootProject.jei_version}") { transitive = false }
 
     common(project(path: ':common')) { transitive = false }
     shadowBundle project(path: ':common', configuration: 'transformProductionFabric')
