@@ -1,6 +1,7 @@
 package com.lowdragmc.lowdraglib2.core.mixins;
 
 import com.lowdragmc.lowdraglib2.Platform;
+import com.lowdragmc.lowdraglib2.utils.ValueInputHelper;
 import com.lowdragmc.lowdraglib2.syncdata.holder.IManagedHolder;
 import com.lowdragmc.lowdraglib2.syncdata.holder.IPersistManagedHolder;
 import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
@@ -66,7 +67,7 @@ public abstract class BlockEntityMixin {
             if (initial.isPresent()) {
                 HolderLookup.Provider provider;
                 if (input instanceof TagValueInput tagInput) {
-                    provider = tagInput.context.lookup();
+                    provider = ValueInputHelper.getLookup(tagInput);
                 } else {
                     provider = Platform.getFrozenRegistry();
                 }

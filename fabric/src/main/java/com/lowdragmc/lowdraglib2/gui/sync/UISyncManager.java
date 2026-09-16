@@ -8,13 +8,10 @@ import com.lowdragmc.lowdraglib2.networking.both.PacketUIRPCEvent;
 import com.lowdragmc.lowdraglib2.networking.both.PacketUIRPCEventReturn;
 import com.lowdragmc.lowdraglib2.utils.ByteBufUtil;
 import com.lowdragmc.lowdraglib2.utils.IdentityMap;
+import dev.architectury.networking.NetworkManager;
 import lombok.Getter;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-// TODO: Fabric stub — use Architectury NetworkManager
-// import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-// TODO: Fabric stub — use Architectury NetworkManager
-// import net.neoforged.neoforge.network.PacketDistributor;
 import org.apache.commons.lang3.function.Consumers;
 
 import java.util.*;
@@ -71,9 +68,9 @@ public class UISyncManager {
             writePack(buf, toSync);
         }, modularUI.player.level().registryAccess());
         if (modularUI.player.level().isClientSide()) {
-            ClientPacketDistributor.sendToServer(new PacketModularUISync(data));
+            NetworkManager.sendToServer(new PacketModularUISync(data));
         } else if (modularUI.player instanceof ServerPlayer serverPlayer) {
-            PacketDistributor.sendToPlayer(serverPlayer, new PacketModularUISync(data));
+            NetworkManager.sendToPlayer(serverPlayer, new PacketModularUISync(data));
         }
     }
 
@@ -172,9 +169,9 @@ public class UISyncManager {
             event.writeParametersToBuffer(buf, args);
         }, player.level().registryAccess());
         if (player.level().isClientSide()) {
-            ClientPacketDistributor.sendToServer(new PacketUIRPCEvent(data));
+            NetworkManager.sendToServer(new PacketUIRPCEvent(data));
         } else if (player instanceof ServerPlayer serverPlayer) {
-            PacketDistributor.sendToPlayer(serverPlayer, new PacketUIRPCEvent(data));
+            NetworkManager.sendToPlayer(serverPlayer, new PacketUIRPCEvent(data));
         }
     }
 
@@ -205,9 +202,9 @@ public class UISyncManager {
                 rpcEvent.writeReturnValueToBuffer(returnBuf, returnValue);
             }, player.level().registryAccess());
             if (player.level().isClientSide()) {
-                ClientPacketDistributor.sendToServer(new PacketUIRPCEventReturn(data));
+                NetworkManager.sendToServer(new PacketUIRPCEventReturn(data));
             } else if (player instanceof ServerPlayer serverPlayer) {
-                PacketDistributor.sendToPlayer(serverPlayer, new PacketUIRPCEventReturn(data));
+                NetworkManager.sendToPlayer(serverPlayer, new PacketUIRPCEventReturn(data));
             }
         }
     }

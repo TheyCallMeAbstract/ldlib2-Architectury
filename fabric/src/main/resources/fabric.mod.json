@@ -12,7 +12,7 @@
     "sources": "https://github.com/We-Are-Stardust/ldlib2"
   },
   "license": "MIT",
-  "icon": "assets/ldlib2/icon.png",
+  "icon": "assets/ldlib2/textures/gui/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
@@ -20,6 +20,15 @@
     ],
     "client": [
       "com.lowdragmc.lowdraglib2.fabric.client.LDLib2FabricClient"
+    ],
+    "fabric-gametest": [
+      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricSmokeGameTest",
+      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricUIGameTests",
+      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricRegistryGameTests",
+      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricResourceGameTests",
+      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricSyncDataGameTests",
+      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricNodeGraphGameTests",
+      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricNodeGraphPreviewGameTests"
     ]
   },
   "mixins": [
@@ -31,6 +40,9 @@
     "java": ">=25",
     "architectury": ">=20.0.12",
     "fabric-api": "*",
-    "yet_another_config_lib": ">=3.9.1"
+    "yet_another_config_lib_v3": ">=3.9.1"
+  },
+  "recommends": {
+    "jei": "*"
   }
 }

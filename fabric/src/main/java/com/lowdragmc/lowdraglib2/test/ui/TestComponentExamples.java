@@ -281,7 +281,7 @@ public class TestComponentExamples implements IScreenTest {
                 new ItemSlot(),
                 new ItemSlot().setItem(Items.APPLE.getDefaultInstance()),
                 new FluidSlot(),
-                new FluidSlot().setFluid(new FluidStack(Fluids.LAVA, 1000))
+                new FluidSlot().setFluid(FluidStack.create(Fluids.LAVA, 1000))
         );
     }
 

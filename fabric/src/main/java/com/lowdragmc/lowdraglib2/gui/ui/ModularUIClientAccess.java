@@ -1,5 +1,6 @@
 package com.lowdragmc.lowdraglib2.gui.ui;
 
+import com.lowdragmc.lowdraglib2.client.ClientGuiLayers;
 import com.lowdragmc.lowdraglib2.gui.holder.DebugScreen;
 import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolder;
 import com.lowdragmc.lowdraglib2.gui.ui.debugger.UIDebugger;
@@ -171,7 +172,7 @@ public final class ModularUIClientAccess {
         }
         modularUI.setDebugMode(debugMode);
         if (debugMode) {
-            Minecraft.getInstance().pushGuiLayer(new DebugScreen(acquireDebugger(modularUI)));
+            ClientGuiLayers.push(Minecraft.getInstance(), new DebugScreen(acquireDebugger(modularUI)));
         } else {
             // Both hosts, because either could be the one showing it. Leaving the other open would
             // put a debugger on screen that its own target no longer believes in.
@@ -192,7 +193,7 @@ public final class ModularUIClientAccess {
         var minecraft = Minecraft.getInstance();
         if (minecraft.screen instanceof DebugScreen debugScreen
                 && debugScreen.uiDebugger == getState(modularUI).uiDebuggerCache) {
-            minecraft.popGuiLayer();
+            ClientGuiLayers.pop(minecraft);
         }
     }
 
@@ -223,7 +224,7 @@ public final class ModularUIClientAccess {
             if (!UIDebuggerWindow.openFor(state.uiDebuggerCache)) return;
             dismissDebugScreen(modularUI);
         } else {
-            minecraft.pushGuiLayer(new DebugScreen(state.uiDebuggerCache));
+            ClientGuiLayers.push(minecraft, new DebugScreen(state.uiDebuggerCache));
             var window = UIDebuggerWindow.windowFor(modularUI);
             if (window != null) {
                 window.handOff();

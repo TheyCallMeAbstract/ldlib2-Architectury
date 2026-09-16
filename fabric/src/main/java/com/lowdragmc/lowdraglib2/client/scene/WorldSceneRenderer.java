@@ -1088,11 +1088,8 @@ public abstract class WorldSceneRenderer {
                     fluidOffset[0] = pos.getX() - (pos.getX() & 15);
                     fluidOffset[1] = pos.getY() - (pos.getY() & 15);
                     fluidOffset[2] = pos.getZ() - (pos.getZ() & 15);
-                    var customRenderer = fluidModelSet.get(fluidState).customRenderer();
-                    if (customRenderer == null
-                            || !customRenderer.renderFluid(fluidRenderer, fluidState, region, pos, fluidOutput, blockState)) {
-                        fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
-                    }
+                    // FluidModel in MC 26.1 has no customRenderer(); always use the vanilla fluid renderer
+                    fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
                 }
 
                 if (blockState.getRenderShape() == MODEL) {
@@ -1218,7 +1215,7 @@ public abstract class WorldSceneRenderer {
                 if (blocked != null && blocked.contains(pos)) continue;
                 BlockEntity be = world.getBlockEntity(pos);
                 if (be == null) continue;
-                var state = beDispatcher.tryExtractRenderState(be, partialTicks, null, null);
+                var state = beDispatcher.tryExtractRenderState(be, partialTicks, null);
                 if (state == null) continue;
 
                 poseStack.pushPose();

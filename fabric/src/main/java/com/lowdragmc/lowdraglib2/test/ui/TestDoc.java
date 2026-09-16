@@ -247,7 +247,7 @@ public class TestDoc implements IScreenTest{
                 new TextField().setText("Text Field"),
                 new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW)).addChildren(
                         new ItemSlot().setItem(Items.APPLE.getDefaultInstance()),
-                        new FluidSlot().setFluid(new FluidStack(Fluids.WATER, 1000))
+                        new FluidSlot().setFluid(FluidStack.create(Fluids.WATER, 1000))
                 ),
                 // list all stylesheets
                 new Selector<Identifier>()

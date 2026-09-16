@@ -226,7 +226,6 @@ public class LDBakedGlyph implements BakedGlyph, EffectGlyph {
             glyph.renderChar(this, pose, buffer, packedLightCoords, flat);
         }
 
-        @Override
         public RenderType renderType(Font.DisplayMode displayMode, boolean blur) {
             return glyph.renderTypes.select(displayMode);
         }
@@ -282,7 +281,6 @@ public class LDBakedGlyph implements BakedGlyph, EffectGlyph {
             glyph.renderEffect(this, pose, buffer, packedLightCoords, flat);
         }
 
-        @Override
         public RenderType renderType(Font.DisplayMode displayMode, boolean blur) {
             return glyph.renderTypes.select(displayMode);
         }

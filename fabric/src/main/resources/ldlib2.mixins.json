@@ -7,7 +7,6 @@
   "client": [
     "BlockEntityRendererDispatcherMixin",
     "GlCommandEncoderMixin",
-    "ObjModelMixin",
     "ParticleFeatureRendererMixin",
     "SimpleTextureMixin",
     "SpriteSourceListMixin",
@@ -27,20 +26,26 @@
     "ui.ScreenRectangleMixin",
     "accessor.MouseHandlerAccessor",
     "accessor.PictureInPictureRendererPoolAccessor",
-    "accessor.ObjGeometryAccessor"
+    "accessor.GuiGraphicsExtractorAccessor",
+    "accessor.AbstractContainerScreenAccessor",
+    "accessor.ParticleEngineAccessor",
+    "accessor.SlotAccessor",
+    "client.MinecraftFrameHookMixin",
+    "client.MinecraftGuiLayerMixin",
+    "client.GameRendererGuiLayerMixin"
   ],
   "mixins": [
     "BlockEntityMixin",
-    "FluidTankMixin",
     "PackConfigMixin",
     "ReloadableResourceManagerMixin",
     "ReloadableServerResourcesMixin",
     "WorldLoaderMixin",
     "accessor.DelegatingOpsAccessor",
-    "ui.AbstractContainerMenuMixin",
-    "ui.InventoryMenuMixin",
-    "ui.MenuTypeMixin",
-    "ui.ServerPlayerMixin"
+    "accessor.AbstractContainerMenuAccessor",
+    "accessor.ChunkPosAccessor",
+    "accessor.TagValueOutputAccessor",
+    "accessor.TagValueInputAccessor",
+    "ui.AbstractContainerMenuMixin"
   ],
   "injectors": {
     "defaultRequire": 1

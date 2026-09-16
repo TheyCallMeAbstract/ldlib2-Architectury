@@ -29,8 +29,8 @@ import java.util.concurrent.*;
 public class AsyncThreadData extends SavedData {
     public static final SavedDataType<AsyncThreadData> TYPE = new SavedDataType<>(
             LDLib2.id("async_thread"),
-            AsyncThreadData::new,
-            serverLevel -> MapCodec.unitCodec(() -> new AsyncThreadData(serverLevel)),
+            () -> new AsyncThreadData(null),
+            MapCodec.unit(new AsyncThreadData(null)).codec(),
             DataFixTypes.LEVEL
     );
     private static final String THREAD_NAME_FORMAT = "LDLib Async Thread-%d";

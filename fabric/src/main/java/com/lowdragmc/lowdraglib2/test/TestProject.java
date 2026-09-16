@@ -20,7 +20,7 @@ public class TestProject implements IProject {
         this.resources = Resources.of(
                 ColorsResource.INSTANCE,
                 TexturesResource.INSTANCE,
-                IRendererResource.INSTANCE,
+                // IRendererResource not yet ported to Fabric
                 UIResource.INSTANCE,
                 TestGraphResource.INSTANCE
         );

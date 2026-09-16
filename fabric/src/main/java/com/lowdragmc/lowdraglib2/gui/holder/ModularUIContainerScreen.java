@@ -1,5 +1,6 @@
 package com.lowdragmc.lowdraglib2.gui.holder;
 
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.AbstractContainerScreenAccessor;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUIClientAccess;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -21,12 +22,23 @@ public class ModularUIContainerScreen extends AbstractContainerScreen<ModularUIC
 
     @Override
     public void init() {
-        // the modular widget has already added + init by events
-        this.imageWidth = (int) getMenu().getModularUI().getWidth();
-        this.imageHeight = (int) getMenu().getModularUI().getHeight();
+        // On NeoForge this is done from ClientEventListener's ScreenEvent.Init.Pre handler. On Fabric there is
+        // no equivalent deterministic hook wired for menus, so lay the UI out and attach the widget here,
+        // mirroring ModularUIScreen.init(). Without this the screen renders blank.
+        var mui = getMenu().getModularUI();
+        if (mui == null) {
+            super.init();
+            return;
+        }
+        ModularUIClientAccess.setScreenAndInit(mui, this);
+        ((AbstractContainerScreenAccessor) this).ldlib2$setImageWidth((int) mui.getWidth());
+        ((AbstractContainerScreenAccessor) this).ldlib2$setImageHeight((int) mui.getHeight());
         super.init();
+        // add + init the modular widget after super.init() so it lands in the screen's renderables
+        var widget = ModularUIClientAccess.getWidget(mui);
+        this.addRenderableWidget(widget);
         // initial focus
-        setFocused(ModularUIClientAccess.getWidget(getMenu().modularUI));
+        setFocused(widget);
     }
 
     @Override

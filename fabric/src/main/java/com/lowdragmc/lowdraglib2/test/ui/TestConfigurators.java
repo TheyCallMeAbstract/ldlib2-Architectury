@@ -109,7 +109,7 @@ public class TestConfigurators implements IMenuTest, IConfigurable, IPersistedSe
     @Configurable
     private ItemStack item = new ItemStack(Items.STONE);
     @Configurable
-    private FluidStack fluid = new FluidStack(Fluids.WATER, 1000);
+    private FluidStack fluid = FluidStack.create(Fluids.WATER, 1000);
     @Configurable
     @ConfigRL(ConfigRL.Type.ITEM_TAG_KEY)
     private Identifier itemTagKey = ItemTags.AXES.location();

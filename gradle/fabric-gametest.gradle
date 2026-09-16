@@ -1,0 +1,65 @@
+// Fabric server gametest wiring: creates the `runGametest` task (over the main source set and the
+// main fabric.mod.json) and a verification gate that fails the build on a missing, empty, or failing
+// report.
+//
+// NOTE: fabric-api's `fabric-api.gametest.report-file` is written by SavingXmlTestReporter
+// (a subclass of the vanilla JUnitLikeTestReporter), so the report is JUnit-style XML, not JSON.
+// The verifier below parses XML accordingly.
+
+fabricApi {
+    configureTests {
+        createSourceSet = false
+        enableGameTests = true
+        enableClientGameTests = false
+        eula = true
+    }
+}
+
+def gametestReport = new File(layout.buildDirectory.dir('gametest').get().asFile, 'report.xml')
+
+tasks.register('verifyGametest') {
+    group = 'verification'
+    description = 'Fails the build if the Fabric gametest report is missing, empty, or has failures.'
+    doLast {
+        if (!gametestReport.exists()) {
+            throw new GradleException("Fabric gametest: no report at ${gametestReport}. " +
+                    "The test server crashed, never started, or matched no tests.")
+        }
+        def text = gametestReport.text
+        if (text == null || text.trim().isEmpty()) {
+            throw new GradleException("Fabric gametest: report at ${gametestReport} is empty.")
+        }
+        def suites = new groovy.xml.XmlSlurper().parseText(text)
+        def cases = []
+        def failures = []
+        suites.depthFirst().findAll { it.name() == 'testcase' }.each { tc ->
+            cases << tc
+            if (tc.failure.size() > 0 || tc.error.size() > 0) {
+                failures << tc
+            }
+        }
+        logger.lifecycle("Fabric gametest: ${cases.size()} tests, ${failures.size()} failures")
+        if (cases.isEmpty()) {
+            throw new GradleException("Fabric gametest: report at ${gametestReport} contains no tests.")
+        }
+        failures.each { tc ->
+            logger.error("FAILED: ${tc.attribute('classname')} ${tc.attribute('name')}")
+            def failure = tc.failure.size() > 0 ? tc.failure[0] : (tc.error.size() > 0 ? tc.error[0] : null)
+            if (failure != null) {
+                logger.error("  ${failure.text()}")
+            }
+        }
+        if (!failures.isEmpty()) {
+            throw new GradleException("Fabric gametest FAILED - ${failures.size()} of ${cases.size()} " +
+                    "tests failed. Report: ${gametestReport}")
+        }
+    }
+}
+
+tasks.configureEach { task ->
+    if (!task.name.equalsIgnoreCase('runGametest')) return
+    task.systemProperty 'fabric-api.gametest', 'true'
+    task.systemProperty 'fabric-api.gametest.report-file', gametestReport.absolutePath
+    task.systemProperty 'fabric-api.gametest.verify', 'true'
+    task.finalizedBy 'verifyGametest'
+}

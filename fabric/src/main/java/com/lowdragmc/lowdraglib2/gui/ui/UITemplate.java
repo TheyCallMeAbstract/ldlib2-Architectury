@@ -15,19 +15,17 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
-// TODO: Fabric stub — NeoForge Event bus
-// import net.neoforged.bus.api.Event;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
-// TODO: Fabric stub — NeoForge event bus
-// import net.neoforged.neoforge.common.NeoForge;
 
 import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 @EqualsAndHashCode
 public class UITemplate {
@@ -104,7 +102,7 @@ public class UITemplate {
         initUI(root);
         var ui = UI.of(root, getAllStylesheets());
         var event = new CreateUI(this, ui);
-        NeoForge.EVENT_BUS.post(event);
+        CreateUI.post(event);
         return event.ui;
     }
 
@@ -163,13 +161,25 @@ public class UITemplate {
         this.stylesheets.addAll(other.stylesheets);
     }
 
-    public static class CreateUI extends Event {
+    public static class CreateUI {
         public final UITemplate template;
         public UI ui;
+
+        private static final List<Consumer<CreateUI>> listeners = new CopyOnWriteArrayList<>();
 
         public CreateUI(UITemplate template, UI ui) {
             this.template = template;
             this.ui = ui;
+        }
+
+        public static void registerListener(Consumer<CreateUI> listener) {
+            listeners.add(listener);
+        }
+
+        public static void post(CreateUI event) {
+            for (var listener : listeners) {
+                listener.accept(event);
+            }
         }
     }
 }

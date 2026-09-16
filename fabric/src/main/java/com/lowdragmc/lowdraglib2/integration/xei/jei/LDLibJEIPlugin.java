@@ -1,11 +1,13 @@
 package com.lowdragmc.lowdraglib2.integration.xei.jei;
 
 import com.lowdragmc.lowdraglib2.LDLib2;
+import com.lowdragmc.lowdraglib2.Platform;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.integration.xei.IngredientIO;
 import com.lowdragmc.lowdraglib2.integration.xei.jei.handler.JEIRecipeSlotHandler;
 import com.lowdragmc.lowdraglib2.integration.xei.jei.handler.JEITargetsTypedHandler;
+import com.lowdragmc.lowdraglib2.test.xei.TestJEIPlugin;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
@@ -124,10 +126,16 @@ public class LDLibJEIPlugin implements IModPlugin {
         // completion across all plugins before any plugin's registerRecipes, so other mods
         // that call into LDLib2 helpers from their registerRecipes will find it ready.
         ingredientManager = registration.getJeiHelpers().getIngredientManager();
+        if (Platform.isDevEnv()) {
+            TestJEIPlugin.registerCategories(registration);
+        }
     }
 
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
+        if (Platform.isDevEnv()) {
+            TestJEIPlugin.registerRecipes(registration);
+        }
     }
 
     /// Utilities for xei compat

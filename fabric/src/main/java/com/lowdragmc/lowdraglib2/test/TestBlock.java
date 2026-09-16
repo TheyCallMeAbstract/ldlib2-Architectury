@@ -143,7 +143,7 @@ public class TestBlock extends Block implements EntityBlock, IBlockRendererProvi
     }
 
     @Override
-    public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state, boolean includeData, Player player) {
+    public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state, boolean includeData) {
         if (level.getBlockEntity(pos) instanceof IPersistManagedHolder persistManagedHolder) {
             var clone = new ItemStack(this);
             if (includeData) {
@@ -155,6 +155,6 @@ public class TestBlock extends Block implements EntityBlock, IBlockRendererProvi
             }
             return clone;
         }
-        return super.getCloneItemStack(level, pos, state, includeData, player);
+        return super.getCloneItemStack(level, pos, state, includeData);
     }
 }

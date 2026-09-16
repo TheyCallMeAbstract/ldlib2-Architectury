@@ -207,16 +207,15 @@ public class DrawerHelperClient {
         var mouseX = context.mouseX;
         var mouseY = context.mouseY;
         if (setNextFrame) {
-            context.graphics.tooltipStack = stack;
+            var graphicsAccessor = (com.lowdragmc.lowdraglib2.core.mixins.accessor.GuiGraphicsExtractorAccessor) context.graphics;
 
             var clientTooltipComponents = toClientTooltips(hoverTooltips.tooltips(), stack, mouseX,
                     context.graphics.guiWidth(), context.graphics.guiHeight(), font);
 
-            context.graphics.setTooltipForNextFrameInternal(font,
+            graphicsAccessor.ldlib2$setTooltipForNextFrameInternal(font,
                     clientTooltipComponents,
                     mouseX, mouseY,
                     tooltipPositioner(hoverTooltips), hoverTooltips.background(), replacing);
-            context.graphics.tooltipStack = ItemStack.EMPTY;
         } else {
             context.graphics.tooltip(
                     font,
@@ -224,8 +223,7 @@ public class DrawerHelperClient {
                             context.graphics.guiWidth(), context.graphics.guiHeight(), font),
                     (int) context.localMouseX, (int) context.localMouseY,
                     tooltipPositioner(hoverTooltips),
-                    hoverTooltips.background(),
-                    stack);
+                    hoverTooltips.background());
         }
     }
 
@@ -257,8 +255,8 @@ public class DrawerHelperClient {
                 case TooltipComponent tooltipComponent -> clientTooltips.add(ClientTooltipComponent.create(tooltipComponent));
                 case Component component -> clientTooltips.add(ClientTooltipComponent.create(component.getVisualOrderText()));
                 case FormattedText formattedText -> {
-                    var visualOrder = Component.literal("").withStyle(formattedText.getStyle());
-                    clientTooltips.add(ClientTooltipComponent.create(formattedText instanceof Component c ? c.getVisualOrderText() : Component.literal(formattedText.getString()).getVisualOrderText()));
+                    var visualOrder = Component.literal(formattedText.getString());
+                    clientTooltips.add(ClientTooltipComponent.create(formattedText instanceof Component c ? c.getVisualOrderText() : visualOrder.getVisualOrderText()));
                 }
                 case FormattedCharSequence formattedCharSequence ->
                         clientTooltips.add(ClientTooltipComponent.create(formattedCharSequence));

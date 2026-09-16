@@ -311,7 +311,7 @@ public class FluidSlot extends BindableUIElement<FluidStack> {
     @Override
     public FluidSlot setValue(@Nullable FluidStack value, boolean notify) {
         if (value == null) value = FluidStack.empty();
-        if (FluidStack.isSameFluidSameComponents(value, fluid)) return this;
+        if (value.getFluid() == fluid.getFluid() && value.getAmount() == fluid.getAmount()) return this;
         this.fluid = value;
         if (notify) notifyListeners();
         return this;

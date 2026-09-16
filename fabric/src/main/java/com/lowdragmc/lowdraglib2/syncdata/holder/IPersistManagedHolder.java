@@ -1,6 +1,7 @@
 package com.lowdragmc.lowdraglib2.syncdata.holder;
 
 import com.lowdragmc.lowdraglib2.Platform;
+import com.lowdragmc.lowdraglib2.utils.ValueInputHelper;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.utils.TagUtils;
 import com.mojang.serialization.DynamicOps;
@@ -24,7 +25,7 @@ public interface IPersistManagedHolder extends IManagedHolder {
         var managedTag = new CompoundTag();
         DynamicOps<Tag> ops;
         if (output instanceof TagValueOutput tagValueOutput) {
-            ops = tagValueOutput.ops;
+            ops = (DynamicOps<Tag>) ((com.lowdragmc.lowdraglib2.core.mixins.accessor.TagValueOutputAccessor) tagValueOutput).ldlib2$getOps();
         } else {
             ops = Platform.getFrozenRegistry().createSerializationContext(NbtOps.INSTANCE);
         }
@@ -46,14 +47,14 @@ public interface IPersistManagedHolder extends IManagedHolder {
 
         if (!managedTag.isEmpty()) {
             var managed = output.child("managed");
-            managed.store(managedTag);
+            com.lowdragmc.lowdraglib2.utils.ValueOutputHelper.storeCompoundTag(managed, managedTag);
         }
     }
 
     default void loadManagedPersistentData(ValueInput input) {
         DynamicOps<Tag> ops;
         if (input instanceof TagValueInput tagValueInput) {
-            ops = tagValueInput.context.ops();
+            ops = ValueInputHelper.getOps(tagValueInput);
         } else {
             ops = Platform.getFrozenRegistry().createSerializationContext(NbtOps.INSTANCE);
         }

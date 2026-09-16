@@ -7,12 +7,17 @@ import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.utils.UIElementProvider;
+import com.lowdragmc.lowdraglib2.integration.xei.jei.LDLibJEIPlugin;
 import com.lowdragmc.lowdraglib2.utils.LocalizationUtils;
 import com.lowdragmc.lowdraglib2.utils.search.IResultHandler;
 import dev.architectury.fluid.FluidStack;
+import dev.architectury.hooks.fluid.fabric.FluidStackHooksFabric;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.fabric.constants.FabricTypes;
+import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -131,8 +136,8 @@ public class RegistrySearchComponent<T> extends SearchComponentConfigurator<T> {
         }
     }
 
-    public static class Fluid extends RegistrySearchComponent<Fluid> {
-        public Fluid(String name, Supplier<Fluid> supplier, Consumer<Fluid> onUpdate, Fluid defaultValue, boolean forceUpdate) {
+    public static class Fluid extends RegistrySearchComponent<net.minecraft.world.level.material.Fluid> {
+        public Fluid(String name, Supplier<net.minecraft.world.level.material.Fluid> supplier, Consumer<net.minecraft.world.level.material.Fluid> onUpdate, net.minecraft.world.level.material.Fluid defaultValue, boolean forceUpdate) {
             super(name, supplier, onUpdate, defaultValue, forceUpdate, BuiltInRegistries.FLUID, UIElementProvider.iconText(
                     fluid -> {
                         var bucket = fluid.getBucket();
@@ -140,7 +145,7 @@ public class RegistrySearchComponent<T> extends SearchComponentConfigurator<T> {
                         if (fluid == Fluids.EMPTY) return IGuiTexture.EMPTY;
                         return new FluidStackTexture(fluid);
                     },
-                    fluid -> Component.translatable(fluid.getDescriptionId())
+                    fluid -> Component.translatable(BuiltInRegistries.FLUID.getKey(fluid).toLanguageKey())
             ));
             setFilter(fluid -> fluid != Fluids.EMPTY && fluid.isSource(fluid.defaultFluidState()));
 
@@ -157,7 +162,7 @@ public class RegistrySearchComponent<T> extends SearchComponentConfigurator<T> {
                         fluidStack -> setValue(fluidStack.getFluid(), true));
             }
 
-            setTranslator(fluid -> LocalizationUtils.format(fluid.getDescriptionId()));
+            setTranslator(fluid -> LocalizationUtils.format(BuiltInRegistries.FLUID.getKey(fluid).toLanguageKey()));
         }
     }
 
@@ -203,14 +208,25 @@ public class RegistrySearchComponent<T> extends SearchComponentConfigurator<T> {
         }
     }
 
-    // todo xei — JEI types differ between platforms; stub for Fabric
+    // Fabric JEI uses FabricTypes.FLUID_STACK (<Fluid, IJeiFluidIngredient>), not
+    // dev.architectury.fluid.FluidStack. Architectury ships the conversion in
+    // FluidStackHooksFabric.fromFabric, which is lossless (it carries components), so the
+    // bridge is a real conversion rather than a lossy shim.
     public static class JEISupport {
         public static void ghostItem(UIElement element, Predicate<ItemStack> filter, Consumer<ItemStack> setter) {
-            // TODO: Fabric JEI integration
+            LDLibJEIPlugin.ghostIngredient(element, VanillaTypes.ITEM_STACK,
+                    ingredient -> filter.test(ingredient.getIngredient()),
+                    setter);
+        }
+
+        private static FluidStack fromJei(IJeiFluidIngredient ingredient) {
+            return FluidStackHooksFabric.fromFabric(ingredient.getFluidVariant(), ingredient.getAmount());
         }
 
         public static void ghostFluid(UIElement element, Predicate<FluidStack> filter, Consumer<FluidStack> setter) {
-            // TODO: Fabric JEI integration
+            LDLibJEIPlugin.ghostIngredient(element, FabricTypes.FLUID_STACK,
+                    ingredient -> filter.test(fromJei(ingredient.getIngredient())),
+                    ingredient -> setter.accept(fromJei(ingredient)));
         }
 
         public static void ghostBlock(UIElement element, Predicate<net.minecraft.world.level.block.Block> filter, Consumer<net.minecraft.world.level.block.Block> setter) {

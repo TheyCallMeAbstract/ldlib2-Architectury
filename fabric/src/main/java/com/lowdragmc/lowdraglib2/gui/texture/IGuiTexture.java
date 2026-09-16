@@ -7,6 +7,7 @@ import com.lowdragmc.lowdraglib2.configurator.IConfigurable;
 import com.lowdragmc.lowdraglib2.configurator.ui.ConfiguratorGroup;
 import com.lowdragmc.lowdraglib2.gui.texture.rendering.GuiTexturePreviewHelper;
 import com.lowdragmc.lowdraglib2.gui.texture.rendering.RegisteredGuiTextureRenderer;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.integration.kjs.KJSBindings;
 import com.lowdragmc.lowdraglib2.registry.ILDLRegisterClient;
 import com.lowdragmc.lowdraglib2.registry.RegistrationEnvironment;
@@ -58,7 +59,15 @@ public interface IGuiTexture extends IPersistedSerializable, IConfigurable, ILDL
 
             @Override
             public void draw(IGuiTexture.MissingTexture texture, com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext context, float x, float y, float width, float height) {
-                context.blitSprite(RenderPipelines.GUI_TEXTURED, context.graphics.guiSprites.missingSprite(), x, y, width, height, -1);
+                // Fabric: guiSprites is private, use reflection to get missingSprite
+                try {
+                    var sprites = GUIContext.getGuiSprites(context.graphics);
+                    var method = sprites.getClass().getMethod("missingSprite");
+                    var missingSprite = method.invoke(sprites);
+                    context.blitSprite(RenderPipelines.GUI_TEXTURED, (net.minecraft.client.renderer.texture.TextureAtlasSprite) missingSprite, x, y, width, height, -1);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to get missing sprite", e);
+                }
             }
         }
     }

@@ -108,8 +108,15 @@ public class ItemResourceHandlerSlot extends Slot {
     }
 
     @Override
-    public boolean isSameInventory(@NotNull Slot other) {
-        return other instanceof ItemResourceHandlerSlot rhs && rhs.itemHandler == this.itemHandler;
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof ItemResourceHandlerSlot rhs)) return false;
+        return rhs.itemHandler == this.itemHandler;
+    }
+
+    @Override
+    public int hashCode() {
+        return itemHandler.hashCode();
     }
 
 }

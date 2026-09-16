@@ -1,7 +1,11 @@
 package com.lowdragmc.lowdraglib2.misc;
 
+import com.lowdragmc.lowdraglib2.common.io.SerializableIO;
 import net.minecraft.core.NonNullList;
+import net.minecraft.world.ItemStackWithSlot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
@@ -10,7 +14,7 @@ import javax.annotation.Nonnull;
  * Fabric-side implementation of NeoForge's ItemStackHandler.
  * Manages a NonNullList of ItemStacks with slot-based access.
  */
-public class ItemStackHandler implements IItemHandlerModifiable {
+public class ItemStackHandler implements IItemHandlerModifiable, SerializableIO {
 
     protected NonNullList<ItemStack> stacks;
 
@@ -24,6 +28,10 @@ public class ItemStackHandler implements IItemHandlerModifiable {
 
     public ItemStackHandler(NonNullList<ItemStack> stacks) {
         this.stacks = stacks;
+    }
+
+    public void setSize(int size) {
+        stacks = NonNullList.withSize(size, ItemStack.EMPTY);
     }
 
     @Override
@@ -108,6 +116,28 @@ public class ItemStackHandler implements IItemHandlerModifiable {
     @Override
     public boolean isItemValid(int slot, @Nonnull ItemStack stack) {
         return true;
+    }
+
+    @Override
+    public void serialize(ValueOutput output) {
+        ValueOutput.TypedOutputList<ItemStackWithSlot> itemList = output.list("Items", ItemStackWithSlot.CODEC);
+        for (int i = 0; i < stacks.size(); i++) {
+            var stack = stacks.get(i);
+            if (!stack.isEmpty()) {
+                itemList.add(new ItemStackWithSlot(i, stack));
+            }
+        }
+        output.putInt("Size", stacks.size());
+    }
+
+    @Override
+    public void deserialize(ValueInput input) {
+        setSize(input.getIntOr("Size", stacks.size()));
+        input.listOrEmpty("Items", ItemStackWithSlot.CODEC).forEach(slot -> {
+            if (slot.isValidInContainer(stacks.size())) {
+                stacks.set(slot.slot(), slot.stack());
+            }
+        });
     }
 
     protected void validateSlotIndex(int slot) {

@@ -3,8 +3,11 @@ package com.lowdragmc.lowdraglib2.client;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonParseException;
+
 import com.lowdragmc.lowdraglib2.LDLib2;
+import com.lowdragmc.lowdraglib2.client.font.LDFontManager;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -99,23 +102,57 @@ public class LDLibClientConfig {
             save(); // create default config file
             return;
         }
-        try {
-            var reader = Files.newBufferedReader(CONFIG_PATH);
-            var json = GSON.fromJson(reader, new TypeToken<JsonObject>() {}.getType());
-            reader.close();
-            var root = json.getAsJsonObject();
-            if (root.has("fontRenderMode")) fontRenderMode = FontRenderMode.valueOf(root.get("fontRenderMode").getAsString());
-            if (root.has("fontAtlasSize")) fontAtlasSize = root.get("fontAtlasSize").getAsInt();
-            if (root.has("sdfEmSize")) sdfEmSize = root.get("sdfEmSize").getAsInt();
-            if (root.has("sdfSharpness")) sdfSharpness = root.get("sdfSharpness").getAsDouble();
-            if (root.has("sdfWeight")) sdfWeight = root.get("sdfWeight").getAsDouble();
-            if (root.has("fontRasterMaxSize")) fontRasterMaxSize = root.get("fontRasterMaxSize").getAsInt();
-            if (root.has("fontRasterEvictSeconds")) fontRasterEvictSeconds = root.get("fontRasterEvictSeconds").getAsInt();
-            if (root.has("textLayoutCache")) textLayoutCache = root.get("textLayoutCache").getAsBoolean();
-        } catch (IOException e) {
+        JsonObject json = null;
+        try (var reader = Files.newBufferedReader(CONFIG_PATH)) {
+            json = GSON.fromJson(reader, JsonObject.class);
+        } catch (IOException | JsonParseException e) {
             LDLib2.LOGGER.error("Failed to load LDLib2 client config, using defaults", e);
         }
+
+        // Gson parses an empty or blank file to null. An earlier save() left exactly such a file
+        // behind by never closing its writer, so treat it as "no config yet" and rewrite defaults
+        // rather than dereferencing null.
+        if (json == null) {
+            loaded = true;
+            save(); // rewrite a well formed default config
+            return;
+        }
+
+        if (json.has("fontRenderMode")) {
+            var mode = json.get("fontRenderMode").getAsString();
+            try {
+                fontRenderMode = FontRenderMode.valueOf(mode);
+            } catch (IllegalArgumentException e) {
+                LDLib2.LOGGER.warn("Unknown fontRenderMode '{}' in LDLib2 client config, keeping {}", mode, fontRenderMode);
+            }
+        }
+        if (json.has("fontAtlasSize")) fontAtlasSize = json.get("fontAtlasSize").getAsInt();
+        if (json.has("sdfEmSize")) sdfEmSize = json.get("sdfEmSize").getAsInt();
+        if (json.has("sdfSharpness")) sdfSharpness = json.get("sdfSharpness").getAsDouble();
+        if (json.has("sdfWeight")) sdfWeight = json.get("sdfWeight").getAsDouble();
+        if (json.has("fontRasterMaxSize")) fontRasterMaxSize = json.get("fontRasterMaxSize").getAsInt();
+        if (json.has("fontRasterEvictSeconds")) fontRasterEvictSeconds = json.get("fontRasterEvictSeconds").getAsInt();
+        if (json.has("textLayoutCache")) textLayoutCache = json.get("textLayoutCache").getAsBoolean();
+
         loaded = true;
+        invalidateFonts();
+    }
+
+    /**
+     * The client config decides how glyphs are baked, so a change to any glyph-affecting value invalidates
+     * every atlas. Handed to the client thread because a config screen may reach this from its own thread and
+     * freeing a texture is not thread safe.
+     * <p>
+     * Fabric has no {@code ModConfigEvent.Reloading} equivalent, so this is called directly from {@link #load()}
+     * and from the setters (which is also YACL's save path).
+     */
+    private static void invalidateFonts() {
+        var minecraft = Minecraft.getInstance();
+        if (minecraft != null) {
+            minecraft.execute(LDFontManager.INSTANCE::invalidate);
+        } else {
+            LDFontManager.INSTANCE.invalidate();
+        }
     }
 
     /**
@@ -133,7 +170,11 @@ public class LDLibClientConfig {
         root.addProperty("textLayoutCache", textLayoutCache);
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
-            Files.newBufferedWriter(CONFIG_PATH).write(GSON.toJson(root));
+            // try-with-resources matters here: an unclosed writer is never flushed, which leaves a
+            // zero byte file that parses back as null and crashed the client on the next launch.
+            try (var writer = Files.newBufferedWriter(CONFIG_PATH)) {
+                writer.write(GSON.toJson(root));
+            }
         } catch (IOException e) {
             LDLib2.LOGGER.error("Failed to save LDLib2 client config", e);
         }
@@ -163,11 +204,11 @@ public class LDLibClientConfig {
     }
 
     public static float sharpness() {
-        return isLoaded() ? sdfSharpness : 1f;
+        return isLoaded() ? (float) sdfSharpness : 1f;
     }
 
     public static float weight() {
-        return isLoaded() ? sdfWeight : 0f;
+        return isLoaded() ? (float) sdfWeight : 0f;
     }
 
     public static boolean isTextLayoutCache() {
@@ -190,33 +231,41 @@ public class LDLibClientConfig {
     public static void setFontRenderMode(FontRenderMode mode) {
         fontRenderMode = mode;
         save();
+        invalidateFonts();
     }
 
     public static void setAtlasSize(int size) {
         fontAtlasSize = size;
+        invalidateFonts();
     }
 
     public static void setEmSize(int size) {
         sdfEmSize = size;
+        invalidateFonts();
     }
 
     public static void setSharpness(double sharpness) {
         sdfSharpness = sharpness;
+        invalidateFonts();
     }
 
     public static void setWeight(double weight) {
         sdfWeight = weight;
+        invalidateFonts();
     }
 
     public static void setRasterMaxSize(int size) {
         fontRasterMaxSize = size;
+        invalidateFonts();
     }
 
     public static void setRasterEvictSeconds(int seconds) {
         fontRasterEvictSeconds = seconds;
+        invalidateFonts();
     }
 
     public static void setTextLayoutCache(boolean cache) {
         textLayoutCache = cache;
+        invalidateFonts();
     }
 }

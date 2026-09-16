@@ -29,8 +29,8 @@ import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.client.renderer.state.gui.pip.PictureInPictureRenderState;
-import net.neoforged.neoforge.client.gui.PictureInPictureRendererPool;
-import net.neoforged.neoforge.client.gui.PictureInPictureRendererRegistration;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.PictureInPictureRendererPool;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.PictureInPictureRendererRegistration;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 

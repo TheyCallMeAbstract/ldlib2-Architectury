@@ -2,10 +2,11 @@ package com.lowdragmc.lowdraglib2.gui.factory;
 
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import dev.architectury.registry.menu.ExtendedMenuProvider;
+import dev.architectury.registry.menu.MenuRegistry;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -42,7 +43,7 @@ public class PlayerUIMenuType {
         if (!UI_HOLDERS.containsKey(id)) return false;
         var holder = UI_HOLDERS.get(id).apply(player);
         if (holder == null) return false;
-        player.openMenu(new MenuProvider() {
+        MenuRegistry.openExtendedMenu((net.minecraft.server.level.ServerPlayer) player, new ExtendedMenuProvider() {
             @Override
             public Component getDisplayName() {
                 return Component.translatable(id.toLanguageKey());
@@ -53,16 +54,15 @@ public class PlayerUIMenuType {
                 return new ModularUIContainerMenu(LDMenuTypes.PLAYER_UI.get(), containerId, playerInventory, holder);
             }
 
-
             @Override
-            public void writeClientSideData(AbstractContainerMenu menu, RegistryFriendlyByteBuf buffer) {
+            public void saveExtraData(FriendlyByteBuf buffer) {
                 buffer.writeIdentifier(id);
             }
         });
         return true;
     }
 
-    public static ModularUIContainerMenu create(int windowId, Inventory inv, RegistryFriendlyByteBuf data) {
+    public static ModularUIContainerMenu create(int windowId, Inventory inv, FriendlyByteBuf data) {
         var id = data.readIdentifier();
         var holder = UI_HOLDERS.get(id).apply(inv.player);
         if (holder == null) throw new IllegalArgumentException("No player ui holder found for id " + id);

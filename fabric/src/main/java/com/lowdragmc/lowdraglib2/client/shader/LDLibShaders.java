@@ -15,7 +15,7 @@ public class LDLibShaders {
 	/**
 	 * the vertex format for HSB color, three four of float
 	 */
-	public static final VertexFormatElement HSB_Alpha = VertexFormatElement.register(VertexFormatElement.findNextId(), 0, VertexFormatElement.Type.FLOAT, false, 4);
+	public static final VertexFormatElement HSB_Alpha = VertexFormatElement.register(8, 0, VertexFormatElement.Type.FLOAT, false, 4);
 
 	public static VertexFormat HSB_VERTEX_FORMAT = VertexFormat.builder()
 			.add("Position", POSITION)
@@ -28,10 +28,10 @@ public class LDLibShaders {
 	 * Radius: (rTL*8, rTR*8, rBR*8, rBL*8) as SHORT×4
 	 */
 	public static final VertexFormatElement RECT_PARAMS = VertexFormatElement.register(
-			VertexFormatElement.findNextId(), 0, VertexFormatElement.Type.SHORT, false, 4);
+			9, 0, VertexFormatElement.Type.SHORT, false, 4);
 
 	public static final VertexFormatElement RECT_RADIUS = VertexFormatElement.register(
-			VertexFormatElement.findNextId(), 0, VertexFormatElement.Type.SHORT, false, 4);
+			10, 0, VertexFormatElement.Type.SHORT, false, 4);
 
 	public static final VertexFormat ROUNDED_RECT_FORMAT = VertexFormat.builder()
 			.add("Position", POSITION)

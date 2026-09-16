@@ -5,11 +5,16 @@ import com.lowdragmc.lowdraglib2.gui.sync.IUISyncManagerHolder;
 import com.lowdragmc.lowdraglib2.utils.ByteBufUtil;
 import lombok.NoArgsConstructor;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
 @NoArgsConstructor
-public class PacketUIRPCEventReturn {
+public class PacketUIRPCEventReturn implements CustomPacketPayload {
     public static final Identifier ID = LDLib2.id("ui_rpc_event_return");
+    public static final Type<PacketUIRPCEventReturn> TYPE = new Type<>(ID);
+    public static final StreamCodec<RegistryFriendlyByteBuf, PacketUIRPCEventReturn> CODEC =
+            StreamCodec.ofMember(PacketUIRPCEventReturn::write, PacketUIRPCEventReturn::decode);
 
     public byte[] returnData;
 
@@ -44,5 +49,10 @@ public class PacketUIRPCEventReturn {
                     syncManager::handEventReturn,
                     player.registryAccess());
         }
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 }

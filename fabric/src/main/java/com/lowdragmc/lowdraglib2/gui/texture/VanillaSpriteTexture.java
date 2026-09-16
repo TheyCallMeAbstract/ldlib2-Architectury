@@ -85,7 +85,18 @@ public class VanillaSpriteTexture extends TransformTexture {
                 public void search(String word, IResultHandler<Identifier> searchHandler) {
                     var lowerWord = word.toLowerCase();
                     var atlas = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.GUI);
-                    for (var key : atlas.getTextures().keySet()) {
+                    // TextureAtlas.getTextures() is private in vanilla; use reflection to iterate sprite keys
+                    java.util.Set<net.minecraft.resources.Identifier> keys;
+                    try {
+                        var field = atlas.getClass().getDeclaredField("texturesByName");
+                        field.setAccessible(true);
+                        @SuppressWarnings("unchecked")
+                        var map = (java.util.Map<net.minecraft.resources.Identifier, ?>) field.get(atlas);
+                        keys = map.keySet();
+                    } catch (Exception e) {
+                        keys = java.util.Set.of();
+                    }
+                    for (var key : keys) {
                         if (Thread.currentThread().isInterrupted()) return;
                         if (key.toString().toLowerCase().contains(lowerWord)) {
                             searchHandler.acceptResult(key);

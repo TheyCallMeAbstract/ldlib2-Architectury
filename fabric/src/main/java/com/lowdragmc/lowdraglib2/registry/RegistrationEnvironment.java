@@ -44,9 +44,20 @@ public enum RegistrationEnvironment {
      * Use this in annotation filters for {@link AutoRegistry}.
      */
     public static boolean shouldRegister(Map<String, Object> annotationData) {
-        // ASM scan stores enum values as ModAnnotation.EnumHolder(desc, value)
-        if (annotationData.get("environment") instanceof ModAnnotation.EnumHolder envHolder) {
-            return RegistrationEnvironment.valueOf(envHolder.value()).shouldRegister();
+        // ASM AnnotationNode stores enum values as a two-element String[]: {descriptor, constantName}
+        Object envValue = annotationData.get("environment");
+        if (envValue instanceof String[] enumValue && enumValue.length == 2) {
+            return RegistrationEnvironment.valueOf(enumValue[1]).shouldRegister();
+        }
+        if (envValue instanceof org.objectweb.asm.Type[] types && types.length > 0) {
+            // Get the simple name from the internal name, e.g. "com/lowdragmc/.../RegistrationEnvironment$ALWAYS" -> "ALWAYS"
+            String internalName = types[0].getInternalName();
+            String enumName = internalName.contains("$") ? internalName.substring(internalName.lastIndexOf('$') + 1) : internalName;
+            return RegistrationEnvironment.valueOf(enumName).shouldRegister();
+        }
+        // Also handle direct string values (e.g. from Fabric annotation processing)
+        if (envValue instanceof String str) {
+            return RegistrationEnvironment.valueOf(str).shouldRegister();
         }
         return true;
     }

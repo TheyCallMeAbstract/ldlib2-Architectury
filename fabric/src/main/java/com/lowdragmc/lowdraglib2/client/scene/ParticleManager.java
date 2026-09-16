@@ -91,7 +91,7 @@ public class ParticleManager {
         if (engine != null || level == null) return;
         var vanillaParticleEngine = Minecraft.getInstance().particleEngine;
         if (vanillaParticleEngine == null) return; // Minecraft still initialising
-        engine = new ParticleEngine(level, vanillaParticleEngine.resourceManager);
+        engine = new ParticleEngine(level, ((com.lowdragmc.lowdraglib2.core.mixins.accessor.ParticleEngineAccessor) vanillaParticleEngine).ldlib2$getResourceManager());
         synchronized (pendingAdds) {
             while (!pendingAdds.isEmpty()) {
                 engine.add(pendingAdds.poll());

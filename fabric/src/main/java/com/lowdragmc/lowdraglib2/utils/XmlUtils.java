@@ -17,6 +17,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.*;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.TagKey;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.util.Util;
@@ -232,8 +234,9 @@ public class XmlUtils {
 
     public static ItemStack getItemStack(Element element) {
         var ingredient = getIngredient(element);
-        if (ingredient.ingredient.getValues().size() > 0) {
-            var stack = ingredient.ingredient.getValues().get(0).value().getDefaultInstance();
+        var itemsList = ingredient.ingredient.items().toList();
+        if (!itemsList.isEmpty()) {
+            var stack = itemsList.get(0).value().getDefaultInstance();
             stack.setCount(ingredient.count);
             return stack;
         }
@@ -298,7 +301,8 @@ public class XmlUtils {
                 ingredient = new SizedIngredient(Ingredient.of(itemStack.getItem()), count);
             }
         } else if (element.hasAttribute("tag")) {
-            var tag = BuiltInRegistries.ITEM.getOrThrow(ItemTags.create(Identifier.parse(element.getAttribute("tag"))));
+            var tagKey = TagKey.create(Registries.ITEM, Identifier.parse(element.getAttribute("tag")));
+            var tag = BuiltInRegistries.ITEM.getOrThrow(tagKey);
             ingredient = new SizedIngredient(Ingredient.of(tag), count);
         }
         return ingredient;

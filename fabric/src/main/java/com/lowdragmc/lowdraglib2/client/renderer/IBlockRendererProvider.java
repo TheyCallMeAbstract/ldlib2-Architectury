@@ -25,7 +25,7 @@ public interface IBlockRendererProvider {
         } else {
             int i = world.getBrightness(LightLayer.SKY, pos);
             int j = world.getBrightness(LightLayer.BLOCK, pos);
-            int k = state.getLightEmission(world, pos);
+            int k = state.getLightEmission();
             if (j < k) {
                 j = k;
             }

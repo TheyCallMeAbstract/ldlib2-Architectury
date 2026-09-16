@@ -70,8 +70,17 @@ public class DataComponentConfigurator extends ConfiguratorGroup {
             var key = BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(type);
             if (key == null) continue;
             var tagConfigurator = new TagConfigurator(key.getPath(), () -> {
-                var valueOpt = supplier.get().getPatch(type);
-                var value = valueOpt == null ? prototype.get(type) : valueOpt.orElse(null);
+                var patch = supplier.get();
+                // DataComponentPatch has no get(type) in MC 26.1; iterate to find the value
+                java.util.Optional<?> found = java.util.Optional.empty();
+                for (var entry : patch.entrySet()) {
+                    if (entry.getKey() == type) {
+                        found = (java.util.Optional) entry.getValue();
+                        break;
+                    }
+                }
+                var value = found.orElse(null);
+                if (value == null) value = prototype.get(type);
                 if (value == null) return EndTag.INSTANCE;
                 DataResult<Tag> result = type.codec().encodeStart(opWithRegistry, value);
                 return result.result().orElse(EndTag.INSTANCE);

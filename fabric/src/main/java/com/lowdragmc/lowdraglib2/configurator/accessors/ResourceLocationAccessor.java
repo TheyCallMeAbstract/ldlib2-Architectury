@@ -13,10 +13,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.tags.*;
+import net.minecraft.tags.TagKey;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -48,34 +49,46 @@ public class ResourceLocationAccessor extends TypesAccessor<Identifier> {
                 case FONT -> new SearchComponentConfigurator<>(name, supplier, consumer, defaultValue(field, String.class), forceUpdate,
                         (word, handler) -> {
                             var search = word.toLowerCase();
-                            for (var fontName : Minecraft.getInstance().fontManager.fontSets.keySet()) {
-                                if (Thread.currentThread().isInterrupted()) return;
-                                if (fontName.toString().contains(search)) {
-                                    handler.accept(fontName);
+                            // fontManager.fontSets is private in Fabric, use reflection
+                            try {
+                                var fontManagerField = Minecraft.class.getDeclaredField("fontManager");
+                                fontManagerField.setAccessible(true);
+                                var fontManager = fontManagerField.get(Minecraft.getInstance());
+                                var fontSetsField = fontManager.getClass().getDeclaredField("fontSets");
+                                fontSetsField.setAccessible(true);
+                                @SuppressWarnings("unchecked")
+                                var fontSets = (Map<Identifier, ?>) fontSetsField.get(fontManager);
+                                for (var fontName : fontSets.keySet()) {
+                                    if (Thread.currentThread().isInterrupted()) return;
+                                    if (fontName.toString().contains(search)) {
+                                        handler.accept(fontName);
+                                    }
                                 }
+                            } catch (Exception e) {
+                                LDLib2.LOGGER.error("Failed to access fontSets via reflection", e);
                             }
                         }, Identifier::toString, UIElementProvider.text(font -> font == null ?
                         Component.literal("---") : Component.literal(font.toString()))
                 );
                 case ITEM_TAG_KEY -> new TagKeySearchComponent.Item(name,
-                        () -> ItemTags.create(supplier.get()), tagKey -> consumer.accept(tagKey.location()),
-                        ItemTags.create(defaultValue(field, Identifier.class)),
+                        () -> TagKey.create(Registries.ITEM, supplier.get()), tagKey -> consumer.accept(tagKey.location()),
+                        TagKey.create(Registries.ITEM, defaultValue(field, Identifier.class)),
                         forceUpdate
                 );
                 case BLOCK_TAG_KEY -> new TagKeySearchComponent.Block(name,
-                        () -> BlockTags.create(supplier.get()), tagKey -> consumer.accept(tagKey.location()),
-                        BlockTags.create(defaultValue(field, Identifier.class)),
+                        () -> TagKey.create(Registries.BLOCK, supplier.get()), tagKey -> consumer.accept(tagKey.location()),
+                        TagKey.create(Registries.BLOCK, defaultValue(field, Identifier.class)),
                         forceUpdate
                 );
                 case FLUID_TAG_KEY -> new TagKeySearchComponent.Fluid(name,
-                        () -> FluidTags.create(supplier.get()), tagKey -> consumer.accept(tagKey.location()),
-                        FluidTags.create(defaultValue(field, Identifier.class)),
+                        () -> TagKey.create(Registries.FLUID, supplier.get()), tagKey -> consumer.accept(tagKey.location()),
+                        TagKey.create(Registries.FLUID, defaultValue(field, Identifier.class)),
                         forceUpdate
                 );
-                case ENTITY_TYPE_TAG_KEY -> new TagKeySearchComponent.EntityType(name,
-                        () -> TagKey.create(Registries.ENTITY_TYPE, supplier.get()), tagKey -> consumer.accept(tagKey.location()),
-                        TagKey.create(Registries.ENTITY_TYPE, defaultValue(field, Identifier.class)),
-                        forceUpdate
+                case ENTITY_TYPE_TAG_KEY -> new TagKeySearchComponent<net.minecraft.world.entity.EntityType<?>>(name,
+                        () -> (TagKey) TagKey.create(Registries.ENTITY_TYPE, supplier.get()), tagKey -> consumer.accept(((TagKey) tagKey).location()),
+                        (TagKey) TagKey.create(Registries.ENTITY_TYPE, defaultValue(field, Identifier.class)),
+                        forceUpdate, null, null
                 );
             };
         }

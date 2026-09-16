@@ -1,14 +1,10 @@
 package com.lowdragmc.lowdraglib2.client.window;
 
 import com.lowdragmc.lowdraglib2.LDLib2;
+import com.lowdragmc.lowdraglib2.client.FrameEvents;
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.architectury.event.events.client.ClientLifecycleEvent;
 import net.minecraft.client.Minecraft;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
-import net.neoforged.neoforge.event.GameShuttingDownEvent;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.LinkedHashMap;
@@ -24,7 +20,6 @@ import java.util.List;
  * consumers see the state they expect, and every host is driven inside its own try/catch so one
  * misbehaving window cannot take the game's frame down with it.
  */
-@EventBusSubscriber(modid = LDLib2.MOD_ID, value = Dist.CLIENT)
 public final class OsWindowManager {
 
     /**
@@ -129,10 +124,36 @@ public final class OsWindowManager {
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.LOW)
-    public static void onFrameRendered(RenderFrameEvent.Post event) {
+    /**
+     * Registers the per-frame and shutdown hooks with Architectury's event bus.
+     * Called once from {@code LDLib2FabricClient.onInitializeClient}.
+     */
+    public static void init() {
+        // Drive every open OS window once per frame, the same seam NeoForge uses via
+        // RenderFrameEvent.Post. Architectury has no per-frame client event, so this hangs off the
+        // Fabric replacement (FrameEvents) fired after GameRenderer.render in Minecraft.renderFrame.
+        FrameEvents.subscribe(OsWindowManager::onFrame);
+        // Close all windows before the GL context is torn down.
+        ClientLifecycleEvent.CLIENT_STOPPING.register(OsWindowManager::onClientStopping);
+    }
+
+    /** Per-frame callback; resolves the client itself so it can be used as a {@link Runnable}. */
+    public static void onFrame() {
+        var mc = Minecraft.getInstance();
+        if (mc != null) {
+            onClientTick(mc);
+        }
+    }
+
+    /**
+     * Drives every open {@link OsWindow} once per tick, and makes sure none of them outlive the game.
+     *
+     * <p>Every host is driven inside its own try/catch so one misbehaving window cannot take the
+     * game's tick down with it.
+     */
+    public static void onClientTick(Minecraft mc) {
         if (ENTRIES.isEmpty()) return;
-        var partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+        var partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
         // Copy: a host can close itself (or another) while being driven — a close button runs inside
         // drainInput, so by the time it returns this host may already be gone.
         for (var host : List.copyOf(ENTRIES.keySet())) {
@@ -177,8 +198,7 @@ public final class OsWindowManager {
      * {@code glfwTerminate} — that destroys every remaining window out from under us and leaks the
      * native callback closures we allocated for them.
      */
-    @SubscribeEvent
-    public static void onGameShuttingDown(GameShuttingDownEvent event) {
+    public static void onClientStopping(Minecraft mc) {
         for (var host : List.copyOf(ENTRIES.keySet())) {
             try {
                 close(host);

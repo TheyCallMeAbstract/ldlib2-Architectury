@@ -3,11 +3,13 @@ package com.lowdragmc.lowdraglib2.gui.factory;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import dev.architectury.registry.menu.ExtendedMenuProvider;
+import dev.architectury.registry.menu.MenuRegistry;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -31,15 +33,16 @@ public class HeldItemUIMenuType {
         var heldItem = player.getItemInHand(hand);
         if (heldItem.getItem() instanceof HeldItemUI heldItemUI) {
             var holder = heldItemUI.createUIHolder(player, hand, heldItem);
-            return player.openMenu(holder).isPresent();
+            MenuRegistry.openExtendedMenu(player, holder);
+            return true;
         }
         return false;
     }
 
-    public static ModularUIContainerMenu create(int windowId, Inventory inv, RegistryFriendlyByteBuf data) {
+    public static ModularUIContainerMenu create(int windowId, Inventory inv, FriendlyByteBuf data) {
         var player = inv.player;
         var hand = data.readEnum(InteractionHand.class);
-        var itemstack = ItemStack.OPTIONAL_STREAM_CODEC.decode(data);
+        var itemstack = ItemStack.OPTIONAL_STREAM_CODEC.decode((RegistryFriendlyByteBuf) data);
         if (itemstack.getItem() instanceof HeldItemUI heldItemUI) {
             var holder = heldItemUI.createUIHolder(player, hand, itemstack);
             return new ModularUIContainerMenu(LDMenuTypes.HELD_ITEM_UI.get(), windowId, inv, holder);
@@ -91,7 +94,7 @@ public class HeldItemUIMenuType {
 
     @ParametersAreNonnullByDefault
     @MethodsReturnNonnullByDefault
-    public static class HeldItemUIHolder implements MenuProvider, IContainerUIHolder {
+    public static class HeldItemUIHolder implements ExtendedMenuProvider, IContainerUIHolder {
         public final HeldItemUI heldItemUI;
         public final Player player;
         public final InteractionHand hand;
@@ -121,9 +124,9 @@ public class HeldItemUIMenuType {
         }
 
         @Override
-        public void writeClientSideData(AbstractContainerMenu menu, RegistryFriendlyByteBuf buffer) {
+        public void saveExtraData(FriendlyByteBuf buffer) {
             buffer.writeEnum(hand);
-            ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, itemStack);
+            ItemStack.OPTIONAL_STREAM_CODEC.encode((RegistryFriendlyByteBuf) buffer, itemStack);
         }
 
         @Override

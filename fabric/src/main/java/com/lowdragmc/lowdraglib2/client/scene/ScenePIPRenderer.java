@@ -97,8 +97,5 @@ public class ScenePIPRenderer extends PictureInPictureRenderer<SceneRenderState>
         return "scene";
     }
 
-    @Override
-    public boolean canBeReusedFor(SceneRenderState state, int textureWidth, int textureHeight) {
-        return super.canBeReusedFor(state, textureWidth, textureHeight);
-    }
+    // canBeReusedFor not present in vanilla PictureInPictureRenderer for MC 26.1
 }

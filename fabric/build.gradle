@@ -1,5 +1,9 @@
 plugins {
     id 'com.gradleup.shadow'
+    // Kotlin toolchain, mirroring neoforge/build.gradle:5-6. The JVM plugin version is the
+    // Kotlin compiler; the Lombok plugin version is the separate experimental Lombok plugin.
+    id 'org.jetbrains.kotlin.jvm' version '2.3.0'
+    id 'org.jetbrains.kotlin.plugin.lombok' version '2.1.20'
     id 'io.freefair.lombok' version "9.2.0"
 }
 
@@ -7,6 +11,24 @@ architectury {
     platformSetupLoomIde()
     fabric()
 }
+
+// Mirror neoforge/build.gradle:52-58 and :96 so Kotlin sources can live beside Java sources
+// under src/main/java, exactly as they do on NeoForge.
+kotlin {
+    jvmToolchain(25)
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-parameters")
+        freeCompilerArgs.add("-Xwhen-guards")
+    }
+}
+
+sourceSets.main.kotlin { srcDir("src/main/java") }
+
+// Fabric server gametest wiring: runGametest + verifyGametest gate.
+apply from: rootProject.file('gradle/fabric-gametest.gradle')
+
+// Fabric in-client UI test harness: -PldTest wiring plus the verifyUiTest gate.
+apply from: rootProject.file('gradle/fabric-uitest.gradle')
 
 configurations {
     common {
@@ -23,6 +45,10 @@ configurations {
         canBeResolved = true
         canBeConsumed = false
     }
+
+    // Dev-runtime only deps (mirrors neoforge/build.gradle:21-22). Not a mod dependency.
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
 }
 
 repositories {
@@ -51,15 +77,47 @@ dependencies {
     // Taffy layout engine (same as NeoForge jarJar)
     implementation "dev.vfyjxf:taffy:$rootProject.taffy_version"
 
+    // kotlin-stdlib: NeoForge ships it via jarJar at kotlin_stdlib_version (neoforge/build.gradle:107-109,
+    // embedded as META-INF/jarjar/kotlin-stdlib-2.1.20.jar). Shadow is Fabric's analogue here, so the
+    // stdlib is listed explicitly in shadowBundle to land inside the Fabric jar. The Kotlin plugin still
+    // puts its own (2.3.0) stdlib on the compile classpath, preserving NeoForge's version split.
+    shadowBundle "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_stdlib_version"
+
     // YACL — config library for Fabric (replaces NeoForge ModConfigSpec)
     implementation "dev.isxander:yet-another-config-lib:$rootProject.yacl_version"
+    compileOnly("dev.isxander:yet-another-config-lib:$rootProject.yacl_version")
 
     // JEI — common API is shared across platforms, fabric-api is Fabric-specific
     compileOnly("mezz.jei:jei-${rootProject.minecraft_version}-common-api:${rootProject.jei_version}") { transitive = false }
     compileOnly("mezz.jei:jei-${rootProject.minecraft_version}-fabric-api:${rootProject.jei_version}") { transitive = false }
+    // JEI dev runtime so the integration actually loads in runClient (optional mod; never `depends`).
+    localRuntime("mezz.jei:jei-${rootProject.minecraft_version}-fabric:${rootProject.jei_version}")
 
     common(project(path: ':common')) { transitive = false }
     shadowBundle project(path: ':common', configuration: 'transformProductionFabric')
+
+    // JUnit + Mockito (mirrors neoforge/build.gradle:121-126). fabric-loader-junit bootstraps
+    // Fabric Loader (and thus the Minecraft classpath) inside the plain `test` task.
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
+    testImplementation 'org.mockito:mockito-core:5.5.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.5.0'
+    testImplementation "net.fabricmc:fabric-loader-junit:${rootProject.fabric_loader_version}"
+}
+
+// Make test classpath inherit from main classpath (mirrors neoforge/build.gradle:88-93).
+// Loom supplies the Minecraft/loader classpath to `src/test` for free, but the `common`
+// configuration is attached to `compileClasspath` directly and would otherwise be missing.
+configurations {
+    testImplementation.extendsFrom(implementation)
+    testCompileOnly.extendsFrom(compileClasspath)
+    testRuntimeOnly.extendsFrom(runtimeClasspath)
+}
+
+test {
+    useJUnitPlatform()
 }
 
 processResources {

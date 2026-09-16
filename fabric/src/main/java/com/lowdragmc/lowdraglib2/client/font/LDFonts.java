@@ -102,7 +102,7 @@ public final class LDFonts {
                     ? LDTextLayoutCache.layout(key, text)
                     : text.get();
             var pose = context.pose.copyPose();
-            var scissor = context.graphics.peekScissorStack();
+            var scissor = GUIContext.peekScissorStack(context.graphics);
             // prepareText is what turns codepoints into positioned quads, and it runs here rather than at
             // render time so the bucket selected above is still the active one
             var runs = new ArrayList<Run>();

@@ -1,6 +1,7 @@
 package com.lowdragmc.lowdraglib2.gui.ui.rendering;
 
 import com.lowdragmc.lowdraglib2.client.shader.LDLibRenderPipelines;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.GuiGraphicsExtractorAccessor;
 import com.lowdragmc.lowdraglib2.gui.texture.rendering.GuiTextureClientRenderers;
 import com.lowdragmc.lowdraglib2.gui.texture.rendering.GuiTextureRendererRegistry;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -29,6 +30,7 @@ import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.client.renderer.state.gui.GuiTextRenderState;
 import net.minecraft.client.renderer.state.gui.pip.PictureInPictureRenderState;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.metadata.gui.GuiMetadataSection;
 import net.minecraft.client.resources.metadata.gui.GuiSpriteScaling;
@@ -46,6 +48,41 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class GUIContext implements IGUIContext {
+
+    /**
+     * Fabric replacement for NeoForge's GuiGraphicsExtractor#peekScissorStack().
+     *
+     * <p>Vanilla's {@code scissorStack} field and its nested {@code ScissorStack} type are both
+     * public, so this reads it directly — no reflection, and none of the reflective failure modes
+     * that silently turn into "no clip" below.
+     *
+     * <p>The result is passed through verbatim: {@code ScissorStack#peek} is {@code Deque#peekLast},
+     * which is {@code null} on an empty stack. Every caller here relies on that null to mean "no
+     * clip" — {@link #isInsideScissor} treats it as "visible", and {@link PreciseScissor#intersect}
+     * as the identity of the nesting. Substituting {@code ScreenRectangle.empty()} (0x0, at the
+     * origin) instead would mean "clips everything away", which culls every element drawn outside an
+     * explicit clip.
+     */
+    public static @Nullable ScreenRectangle peekScissorStack(GuiGraphicsExtractor graphics) {
+        return graphics.scissorStack.peek();
+    }
+
+    /**
+     * Fabric stand-in for NeoForge's {@code GuiGraphicsExtractor.guiSprites}, which NeoForge makes a
+     * public field. Vanilla keeps it private, so it is read through {@link GuiGraphicsExtractorAccessor}.
+     */
+    public static TextureAtlas getGuiSprites(GuiGraphicsExtractor graphics) {
+        return ((GuiGraphicsExtractorAccessor) graphics).ldlib2$getGuiSprites();
+    }
+
+    /**
+     * Looks up a GUI sprite by location. Mirrors NeoForge's direct
+     * {@code graphics.guiSprites.getSprite(location)} call.
+     */
+    public static TextureAtlasSprite getGuiSprite(GuiGraphicsExtractor graphics, Identifier location) {
+        return getGuiSprites(graphics).getSprite(location);
+    }
+
     public GuiGraphicsExtractor graphics;
     public int mouseX, mouseY;
     public float partialTick;
@@ -157,7 +194,7 @@ public class GUIContext implements IGUIContext {
         var clip = PreciseScissor.transform(matrix, x, y, width, height);
 
         // Nest in float space, against whatever the enclosing clip means.
-        var nested = PreciseScissor.intersect(clip, IPreciseScissor.clipOf(graphics.peekScissorStack()));
+        var nested = PreciseScissor.intersect(clip, IPreciseScissor.clipOf(peekScissorStack(graphics)));
 
         // The outer hull, so vanilla's integer copy is never smaller than the real clip. An empty
         // nesting pushes a degenerate box and lets ScissorStack collapse it the way it already does.
@@ -185,11 +222,11 @@ public class GUIContext implements IGUIContext {
         // verbatim. Either way what is on the stack is a fresh rectangle nobody else holds, so
         // tagging it cannot leak precision onto someone else's clip. The one object that is shared,
         // ScreenRectangle.empty(), is refused by attach.
-        IPreciseScissor.attach(graphics.peekScissorStack(), nested);
+        IPreciseScissor.attach(peekScissorStack(graphics), nested);
     }
 
     public @Nullable ScreenRectangle peekScissor() {
-        return graphics.peekScissorStack();
+        return peekScissorStack(graphics);
     }
 
     public void disableScissor() {
@@ -227,7 +264,7 @@ public class GUIContext implements IGUIContext {
     @Override
     public void popVisualLayer() {
         var frame = visualLayers.pop();
-        var savedScissor = frame.savedGraphics().peekScissorStack();
+        var savedScissor = GUIContext.peekScissorStack(frame.savedGraphics());
 
         // Restore outer graphics + pose before attaching the PIP state
         this.graphics = frame.savedGraphics();
@@ -330,7 +367,7 @@ public class GUIContext implements IGUIContext {
         this.addGuiElement(
                 new FloatColoredRectangleRenderState(
                         renderPipeline, TextureSetup.noTexture(), this.pose.copyPose(), x0, y0, x1, y1,
-                        ColorUtils.mulColor(colorU0V0, elementColor), ColorUtils.mulColor(colorU0V1, elementColor), ColorUtils.mulColor(colorU1V1, elementColor), ColorUtils.mulColor(colorU1V0, elementColor), graphics.peekScissorStack()
+                        ColorUtils.mulColor(colorU0V0, elementColor), ColorUtils.mulColor(colorU0V1, elementColor), ColorUtils.mulColor(colorU1V1, elementColor), ColorUtils.mulColor(colorU1V0, elementColor), peekScissorStack(graphics)
                 )
         );
     }
@@ -347,7 +384,7 @@ public class GUIContext implements IGUIContext {
                         ColorUtils.mulColor(color0, elementColor),
                         ColorUtils.mulColor(color1, elementColor),
                         ColorUtils.mulColor(color2, elementColor),
-                        graphics.peekScissorStack()
+                        peekScissorStack(graphics)
                 )
         );
     }
@@ -407,7 +444,7 @@ public class GUIContext implements IGUIContext {
 
     public void blitSprite(RenderPipeline renderPipeline, Identifier location,
                            float x, float y, float width, float height, int color) {
-        var sprite = graphics.guiSprites.getSprite(location);
+        var sprite = getGuiSprite(graphics, location);
         var scaling = getSpriteScaling(sprite);
         switch (scaling) {
             case GuiSpriteScaling.Stretch stretch ->
@@ -737,7 +774,7 @@ public class GUIContext implements IGUIContext {
                         pose.copyPose(),
                         tileWidth,
                         tileHeight,
-                        x0, y0, x1, y1, u0, u1, v0, v1, ColorUtils.mulColor(color, elementColor), graphics.peekScissorStack()
+                        x0, y0, x1, y1, u0, u1, v0, v1, ColorUtils.mulColor(color, elementColor), peekScissorStack(graphics)
                 )
         );
     }
@@ -751,7 +788,7 @@ public class GUIContext implements IGUIContext {
                         renderPipeline,
                         TextureSetup.singleTexture(texture.getTextureView(), texture.getSampler()),
                         pose.copyPose(),
-                        x0, y0, x1, y1, u0, u1, v0, v1, ColorUtils.mulColor(color, elementColor), graphics.peekScissorStack()
+                        x0, y0, x1, y1, u0, u1, v0, v1, ColorUtils.mulColor(color, elementColor), peekScissorStack(graphics)
                 )
         );
     }
@@ -770,7 +807,7 @@ public class GUIContext implements IGUIContext {
                         radius.x, radius.y, radius.z, radius.w,
                         ColorUtils.mulColor(color, elementColor),
                         0f,
-                        graphics.peekScissorStack()
+                        peekScissorStack(graphics)
                 )
         );
     }
@@ -785,7 +822,7 @@ public class GUIContext implements IGUIContext {
                         radius.x, radius.y, radius.z, radius.w,
                         ColorUtils.mulColor(borderColor, elementColor),
                         border,
-                        graphics.peekScissorStack()
+                        peekScissorStack(graphics)
                 )
         );
     }

@@ -22,11 +22,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.storage.*;
-// TODO: Fabric stub — NeoForge CommonHooks
-// import net.neoforged.neoforge.common.CommonHooks;
 import com.lowdragmc.lowdraglib2.common.io.SerializableIO;
-// TODO: Fabric stub — NeoForge ConnectionType
-// import net.neoforged.neoforge.network.connection.ConnectionType;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -41,6 +37,16 @@ import java.util.function.Supplier;
  */
 @UtilityClass
 public final class PersistedParser {
+    /**
+     * Extracts the {@link HolderLookup.Provider} from a {@link RegistryOps}, replacing
+     * NeoForge's {@code CommonHooks.extractLookupProvider}. Delegates to {@link RegistryOpsHelper},
+     * which reflectively reaches the private {@code lookupProvider} field.
+     */
+    private static HolderLookup.Provider extractLookupProvider(RegistryOps<?> registryOps) {
+        var provider = RegistryOpsHelper.extractLookupProvider(registryOps);
+        return provider != null ? provider : Platform.getFrozenRegistry();
+    }
+
     /**
      * Creates a {@link MapCodec} for a specific type utilizing the provided {@link Supplier}.
      * This method internally constructs a codec through {@link PersistedParser#createCodec(Supplier)}
@@ -65,7 +71,7 @@ public final class PersistedParser {
                 T instance = creator.get();
                 HolderLookup.Provider provider = Platform.getFrozenRegistry();
                 if (ops instanceof RegistryOps<T1> registryOps) {
-                    provider = CommonHooks.extractLookupProvider(registryOps);
+                    provider = extractLookupProvider(registryOps);
                 }
                 if (instance instanceof IPersistedSerializable persistedSerializable) {
                     CompoundTag tag;
@@ -87,7 +93,7 @@ public final class PersistedParser {
             public <T1> DataResult<T1> encode(T input, DynamicOps<T1> ops, T1 prefix) {
                 HolderLookup.Provider provider = Platform.getFrozenRegistry();
                 if (ops instanceof RegistryOps<T1> registryOps) {
-                    provider = CommonHooks.extractLookupProvider(registryOps);
+                    provider = extractLookupProvider(registryOps);
                 }
                 if (input instanceof IPersistedSerializable persistedSerializable) {
                     try {
@@ -146,20 +152,26 @@ public final class PersistedParser {
      */
     public static void serialize(Object object, ValueOutput output) {
         if (output instanceof TagValueOutput tagValueOutput) {
-            var ops = tagValueOutput.ops;
+            var tagValueOutputAccessor = (com.lowdragmc.lowdraglib2.core.mixins.accessor.TagValueOutputAccessor) tagValueOutput;
+            var ops = (DynamicOps<Tag>) tagValueOutputAccessor.ldlib2$getOps();
             DataResult<Tag> dataResult;
-            if (ops instanceof RegistryOps<?> registryOps && registryOps.lookupProvider instanceof RegistryOps.HolderLookupAdapter adapter) {
-                dataResult = serialize(ops, object, adapter.lookupProvider);
+            if (ops instanceof RegistryOps<?> registryOps) {
+                var provider = RegistryOpsHelper.extractLookupProvider(registryOps);
+                if (provider != null) {
+                    dataResult = serialize(ops, object, provider);
+                } else {
+                    dataResult = serialize(ops, object, Platform.getFrozenRegistry());
+                }
             } else {
                 dataResult = serialize(ops, object, Platform.getFrozenRegistry());
             }
             dataResult.result().ifPresent(tag -> {
                 if (tag instanceof CompoundTag compoundTag) {
-                    output.store(compoundTag);
+                    com.lowdragmc.lowdraglib2.utils.ValueOutputHelper.storeCompoundTag(output, compoundTag);
                 }
             });
         } else {
-            output.store(serializeNBT(object, Platform.getFrozenRegistry()));
+            com.lowdragmc.lowdraglib2.utils.ValueOutputHelper.storeCompoundTag(output, serializeNBT(object, Platform.getFrozenRegistry()));
         }
     }
 
@@ -168,9 +180,9 @@ public final class PersistedParser {
      */
     public static void deserialize(Object object, ValueInput input) {
         if (input instanceof TagValueInput tagValueInput) {
-            var ops = tagValueInput.context.ops();
-            var provider = tagValueInput.context.lookup();
-            var data = tagValueInput.input;
+            var ops = ValueInputHelper.getOps(tagValueInput);
+            var provider = ValueInputHelper.getLookup(tagValueInput);
+            var data = ValueInputHelper.getInput(tagValueInput);
             deserialize(ops, data, object, provider);
         } else {
             var provider = input.lookup();
@@ -212,8 +224,8 @@ public final class PersistedParser {
     public static void writeBuff(ByteBuf buf, Object object) {
         var provider = buf instanceof RegistryFriendlyByteBuf registryBuf ?
                 registryBuf.registryAccess() : Platform.getFrozenRegistry();
-        var registryBuf = buf instanceof RegistryFriendlyByteBuf rb ?
-                rb : new RegistryFriendlyByteBuf(buf, provider, ConnectionType.NEOFORGE);
+                var registryBuf = buf instanceof RegistryFriendlyByteBuf rb ?
+                         rb : new RegistryFriendlyByteBuf(buf, provider);
         writeStreamBuffInternal(true, registryBuf, object.getClass(), object, provider);
     }
 
@@ -234,8 +246,8 @@ public final class PersistedParser {
     public static void readBuff(ByteBuf buf, Object object) {
         var provider = buf instanceof RegistryFriendlyByteBuf registryBuf ?
                 registryBuf.registryAccess() : Platform.getFrozenRegistry();
-        var registryBuf = buf instanceof RegistryFriendlyByteBuf rb ?
-                rb : new RegistryFriendlyByteBuf(buf, provider, ConnectionType.NEOFORGE);
+                var registryBuf = buf instanceof RegistryFriendlyByteBuf rb ?
+                         rb : new RegistryFriendlyByteBuf(buf, provider);
         readStreamBuffInternal(true, registryBuf, new HashMap<>(), object.getClass(), object, provider);
     }
 

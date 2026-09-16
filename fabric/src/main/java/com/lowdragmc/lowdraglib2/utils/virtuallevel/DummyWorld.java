@@ -22,6 +22,7 @@ import net.minecraft.world.TickRateManager;
 import net.minecraft.world.attribute.EnvironmentAttributeSystem;
 import net.minecraft.world.clock.ClockManager;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.item.alchemy.PotionBrewing;
 import net.minecraft.world.item.crafting.RecipeAccess;
@@ -136,7 +137,7 @@ public class DummyWorld extends Level {
         }
         clockManager = new ClientClockManager();
         this.environmentAttributes = EnvironmentAttributeSystem.builder().build();
-        this.fuelValues = new FuelValues.Builder(registryAccess, FeatureFlagSet.of()).build();
+        this.fuelValues = FuelValues.vanillaBurnTimes(registryAccess, FeatureFlagSet.of());
         this.updateSkyBrightness();
     }
 
@@ -323,7 +324,6 @@ public class DummyWorld extends Level {
     public void addEntity(Entity entity) {
         this.removeEntity(entity.getId(), Entity.RemovalReason.DISCARDED);
         this.entityStorage.addEntity(entity);
-        entity.onAddedToLevel();
     }
 
     public void removeEntity(int entityId, Entity.RemovalReason reason) {
@@ -397,8 +397,8 @@ public class DummyWorld extends Level {
     }
 
     @Override
-    public boolean isLoaded(BlockPos p_195588_1_) {
-        return true;
+    public net.minecraft.world.flag.FeatureFlagSet enabledFeatures() {
+        return net.minecraft.world.flag.FeatureFlagSet.of();
     }
 
     @Override
@@ -509,7 +509,9 @@ public class DummyWorld extends Level {
 
         @Nullable
         public static ParticleProvider<?> getProvider(ParticleType<?> type) {
-            return Minecraft.getInstance().particleEngine.resourceManager.getProviders().get(BuiltInRegistries.PARTICLE_TYPE.getKey(type));
+            var providers = ((com.lowdragmc.lowdraglib2.core.mixins.accessor.ParticleEngineAccessor) Minecraft.getInstance().particleEngine).ldlib2$getResourceManager().getProviders();
+            var key = BuiltInRegistries.PARTICLE_TYPE.getId(type);
+            return providers.get(key);
         }
 
         @Nullable

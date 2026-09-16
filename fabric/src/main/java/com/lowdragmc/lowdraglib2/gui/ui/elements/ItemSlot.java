@@ -29,6 +29,8 @@ import com.lowdragmc.lowdraglib2.misc.IItemHandlerModifiable;
 import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegister;
 import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegisterClient;
 import mezz.jei.api.constants.VanillaTypes;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.AbstractContainerMenuAccessor;
+import com.lowdragmc.lowdraglib2.core.mixins.accessor.AbstractContainerScreenAccessor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.SkipPersistedValue;
@@ -267,7 +269,7 @@ public class ItemSlot extends BindableUIElement<ItemStack> {
                     if (menu instanceof IItemSlotHolderMenu itemSlotHolderMenu) {
                         itemSlotHolderMenu.addSlot(this);
                     } else {
-                        menu.addSlot(slot);
+                        ((AbstractContainerMenuAccessor) menu).ldlib2$addSlot(slot);
                     }
                 }
             }
@@ -282,8 +284,9 @@ public class ItemSlot extends BindableUIElement<ItemStack> {
     public void updateSlotPosition() {
         var mui = getModularUI();
         if (mui != null) {
-            slot.x = (int) (getContentX() - mui.getLeftPos());
-            slot.y = (int) (getContentY() - mui.getTopPos());
+            var slotAccessor = (com.lowdragmc.lowdraglib2.core.mixins.accessor.SlotAccessor) slot;
+            slotAccessor.ldlib2$setX((int) (getContentX() - mui.getLeftPos()));
+            slotAccessor.ldlib2$setY((int) (getContentY() - mui.getTopPos()));
         }
     }
 
@@ -580,19 +583,20 @@ public class ItemSlot extends BindableUIElement<ItemStack> {
             var hovered = itemSlot.isHover() || itemSlot.isSelfOrChildHover();
             var drawDraggingBackground = false;
             if (ModularUIClientAccess.getScreen(mui) instanceof AbstractContainerScreen<?> containerScreen) {
+                var accessor = (AbstractContainerScreenAccessor) containerScreen;
                 var carried = containerScreen.getMenu().getCarried();
-                if (itemSlot.getSlot() == containerScreen.clickedSlot && !containerScreen.draggingItem.isEmpty() && containerScreen.isSplittingStack && !value.isEmpty()) {
+                if (itemSlot.getSlot() == accessor.ldlib2$getClickedSlot() && !accessor.ldlib2$getDraggingItem().isEmpty() && accessor.ldlib2$isSplittingStack() && !value.isEmpty()) {
                     value = value.copyWithCount(value.getCount() / 2);
                     drawDraggingBackground = true;
-                } else if (containerScreen.isQuickCrafting && containerScreen.quickCraftSlots.contains(itemSlot.getSlot()) && !carried.isEmpty()) {
-                    if (containerScreen.quickCraftSlots.size() == 1) {
+                } else if (accessor.ldlib2$isQuickCrafting() && accessor.ldlib2$getQuickCraftSlots().contains(itemSlot.getSlot()) && !carried.isEmpty()) {
+                    if (accessor.ldlib2$getQuickCraftSlots().size() == 1) {
                         return;
                     }
 
                     if (AbstractContainerMenu.canItemQuickReplace(itemSlot.getSlot(), carried, true) && containerScreen.getMenu().canDragTo(itemSlot.getSlot())) {
                         int k = Math.min(carried.getMaxStackSize(), itemSlot.getSlot().getMaxStackSize(carried));
                         int l = itemSlot.getSlot().getItem().isEmpty() ? 0 : itemSlot.getSlot().getItem().getCount();
-                        int i1 = AbstractContainerMenu.getQuickCraftPlaceCount(containerScreen.quickCraftSlots.size(), containerScreen.quickCraftingType, carried) + l;
+                        int i1 = AbstractContainerMenu.getQuickCraftPlaceCount(accessor.ldlib2$getQuickCraftSlots().size(), accessor.ldlib2$getQuickCraftingType(), carried) + l;
                         if (i1 > k) {
                             i1 = k;
                         }
@@ -600,8 +604,8 @@ public class ItemSlot extends BindableUIElement<ItemStack> {
                         value = carried.copyWithCount(i1);
                         drawDraggingBackground = true;
                     } else {
-                        containerScreen.quickCraftSlots.remove(itemSlot.getSlot());
-                        containerScreen.recalculateQuickCraftRemaining();
+                        accessor.ldlib2$getQuickCraftSlots().remove(itemSlot.getSlot());
+                        accessor.ldlib2$recalculateQuickCraftRemaining();
                     }
                 }
             }
