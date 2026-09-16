@@ -20,7 +20,9 @@ public class TestProject implements IProject {
         this.resources = Resources.of(
                 ColorsResource.INSTANCE,
                 TexturesResource.INSTANCE,
-                // IRendererResource not yet ported to Fabric
+                // IRendererResource is ported to Fabric, but intentionally not registered here:
+                // its editor preview crashes on Fabric when TrackedDummyWorld.addBlock places
+                // ldlib2:renderer_block (RendererBlockEntity block-state validation throws).
                 UIResource.INSTANCE,
                 TestGraphResource.INSTANCE
         );

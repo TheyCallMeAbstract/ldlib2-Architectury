@@ -28,7 +28,8 @@
       "com.lowdragmc.lowdraglib2.fabric.gametest.FabricResourceGameTests",
       "com.lowdragmc.lowdraglib2.fabric.gametest.FabricSyncDataGameTests",
       "com.lowdragmc.lowdraglib2.fabric.gametest.FabricNodeGraphGameTests",
-      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricNodeGraphPreviewGameTests"
+      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricNodeGraphPreviewGameTests",
+      "com.lowdragmc.lowdraglib2.fabric.gametest.FabricContainerMenuGameTest"
     ]
   },
   "mixins": [

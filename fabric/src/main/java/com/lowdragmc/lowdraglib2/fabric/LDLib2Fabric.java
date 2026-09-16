@@ -4,6 +4,7 @@ import com.lowdragmc.lowdraglib2.FabricCommonListeners;
 import com.lowdragmc.lowdraglib2.FabricCommonProxy;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.Platform;
+import com.lowdragmc.lowdraglib2.event.LDLib2Events;
 import com.lowdragmc.lowdraglib2.gui.factory.LDMenuTypes;
 import com.lowdragmc.lowdraglib2.networking.both.PacketModularUISync;
 import com.lowdragmc.lowdraglib2.networking.both.PacketRPCBlockEntity;
@@ -22,6 +23,7 @@ public final class LDLib2Fabric implements ModInitializer {
     public void onInitialize() {
         Platform.setInstance(new PlatformFabric());
         LDLib2.init();
+        LDLib2Events.init();
 
         // Mirror NeoForge's CommonProxy + CommonListeners registration/lifecycle hooks.
         FabricCommonProxy.init();

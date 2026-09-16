@@ -45,7 +45,10 @@
     "accessor.ChunkPosAccessor",
     "accessor.TagValueOutputAccessor",
     "accessor.TagValueInputAccessor",
-    "ui.AbstractContainerMenuMixin"
+    "ui.AbstractContainerMenuMixin",
+    "ui.InventoryMenuMixin",
+    "ui.MenuTypeMixin",
+    "ui.ServerPlayerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
