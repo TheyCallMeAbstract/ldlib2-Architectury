@@ -74,8 +74,20 @@ dependencies {
     // since common is transitive:false.
     implementation 'com.google.code.findbugs:jsr305:3.0.2'
 
-    // Taffy layout engine (same as NeoForge jarJar)
-    implementation "dev.vfyjxf:taffy:$rootProject.taffy_version"
+    // Taffy layout engine (same as NeoForge jarJar). It must be BUNDLED into the shadow jar,
+    // not published as a Maven runtime dependency: taffy ships no fabric.mod.json, so Fabric
+    // Loader cannot declare or resolve it, and a jar dropped into mods/ has no POM resolution
+    // at all. Shipping it transitively-only caused NoClassDefFoundError: TaffyDisplay for
+    // every non-Gradle consumer. Modelled on the kotlin-stdlib block below: shadowBundle embeds
+    // the classes, compileOnly/localRuntime keep it on the compile and dev-runtime classpaths
+    // without adding it back to the published POM/.module metadata.
+    // transitive = false is load-bearing: taffy declares it.unimi.dsi:fastutil:8.5.12 at runtime,
+    // and shadow resolves transitives. Bundling fastutil would add ~12.8k classes (~23 MB) and
+    // shadow Minecraft's own fastutil 8.5.18 with an older copy. Minecraft already provides
+    // fastutil on the classpath, so taffy's transitive must be excluded from the shaded set.
+    shadowBundle("dev.vfyjxf:taffy:$rootProject.taffy_version") { transitive = false }
+    compileOnly "dev.vfyjxf:taffy:$rootProject.taffy_version"
+    localRuntime "dev.vfyjxf:taffy:$rootProject.taffy_version"
 
     // kotlin-stdlib: NeoForge ships it via jarJar at kotlin_stdlib_version (neoforge/build.gradle:107-109,
     // embedded as META-INF/jarjar/kotlin-stdlib-2.1.20.jar). Shadow is Fabric's analogue here, so the
