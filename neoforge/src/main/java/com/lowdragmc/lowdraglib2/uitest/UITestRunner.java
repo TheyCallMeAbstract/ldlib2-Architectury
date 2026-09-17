@@ -789,6 +789,17 @@ public final class UITestRunner {
      */
     private boolean pinOptions(Minecraft minecraft) {
         var window = minecraft.getWindow();
+        // A stale options.txt can launch the game fullscreen, and OsWindowManager refuses to open the
+        // native windows the multi-window scenarios need while it is. Force windowed before pinning
+        // anything. toggleFullScreen only flips the field - Window#updateFullscreenIfChanged performs
+        // the monitor switch at the top of the next frame - so return and let it land before the
+        // resize is requested, else the size is applied to a still-fullscreen window and lost.
+        if (window.isFullscreen()) {
+            window.toggleFullScreen();
+            minecraft.options.fullscreen().set(false);
+            return false;
+        }
+        minecraft.options.fullscreen().set(false);
         if (!windowResizeRequested) {
             windowResizeRequested = true;
             windowResizeDeadlineNanos = System.nanoTime() + WINDOW_RESIZE_TIMEOUT_NANOS;

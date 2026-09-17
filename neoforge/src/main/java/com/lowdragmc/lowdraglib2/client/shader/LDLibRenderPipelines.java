@@ -11,8 +11,6 @@ import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static net.minecraft.client.renderer.RenderPipelines.*;
 
@@ -198,17 +196,13 @@ public class LDLibRenderPipelines {
             .build();
 
     public static void register(RegisterRenderPipelinesEvent event) {
-        var LOGGER = LoggerFactory.getLogger("LDLibRenderPipelines");
-        LOGGER.info("=== Registering LDLib2 render pipelines ===");
         event.registerPipeline(GUI_TRIANGLE);
         event.registerPipeline(POSITION_COLOR_NO_DEPTH);
         event.registerPipeline(BLOCK_OVERLAY);
         event.registerPipeline(NO_DEPTH_LINES);
         event.registerPipeline(GRAPH_WIRE);
         event.registerPipeline(ROUNDED_RECT);
-        LOGGER.info("Registered ROUNDED_RECT pipeline with format stride={}", LDLibShaders.ROUNDED_RECT_FORMAT.getVertexSize());
         event.registerPipeline(HSB);
-        LOGGER.info("Registered HSB pipeline with format stride={}", LDLibShaders.HSB_VERTEX_FORMAT.getVertexSize());
         event.registerPipeline(MASK_ALPHA_MULTIPLY);
         event.registerPipeline(STRIP_LINES);
         event.registerPipeline(SDF_TEXT_GUI);
@@ -219,6 +213,5 @@ public class LDLibRenderPipelines {
         event.registerPipeline(RASTER_TEXT);
         event.registerPipeline(RASTER_TEXT_POLYGON_OFFSET);
         event.registerPipeline(RASTER_TEXT_SEE_THROUGH);
-        LOGGER.info("=== LDLib2 render pipelines registered successfully ===");
     }
 }

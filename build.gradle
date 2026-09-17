@@ -54,6 +54,12 @@ subprojects {
         it.options.release = 25
     }
 
+    if (project.name == 'fabric') {
+        base {
+            archivesName = "${rootProject.archives_name}-fabric"
+        }
+    }
+
     if (project.name != 'neoforge') {
         // Configure Maven publishing.
         publishing {
@@ -61,15 +67,40 @@ subprojects {
                 mavenJava(MavenPublication) {
                     artifactId = base.archivesName.get()
                     from components.java
+
+                    if (project.name == 'fabric') {
+                        pom {
+                            name = 'LDLib2 Fabric'
+                            description = 'Fabric Edition of LDLib2, a library for UI, rendering, synchronization, persistence, and in-game editors.'
+                            url = 'https://github.com/TheyCallMeAbstract/ldlib2-Architectury'
+                            licenses {
+                                license {
+                                    name = 'MIT License'
+                                    url = 'https://opensource.org/licenses/MIT'
+                                }
+                            }
+                            scm {
+                                connection = 'scm:git:https://github.com/TheyCallMeAbstract/ldlib2-Architectury.git'
+                                developerConnection = 'scm:git:ssh://git@github.com/TheyCallMeAbstract/ldlib2-Architectury.git'
+                                url = 'https://github.com/TheyCallMeAbstract/ldlib2-Architectury'
+                            }
+                        }
+                    }
                 }
             }
 
             // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
             repositories {
-                // Add repositories to publish to here.
-                // Notice: This block does NOT have the same function as the block in the top level.
-                // The repositories here will be used for publishing your artifact, not for
-                // retrieving dependencies.
+                if (project.name == 'fabric') {
+                    maven {
+                        name = 'GitHubPackages'
+                        url = 'https://maven.pkg.github.com/TheyCallMeAbstract/ldlib2-Architectury'
+                        credentials {
+                            username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
+                            password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')
+                        }
+                    }
+                }
             }
         }
     }

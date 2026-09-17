@@ -2,26 +2,23 @@ package com.lowdragmc.lowdraglib2.gui.holder;
 
 import com.lowdragmc.lowdraglib2.gui.factory.IContainerUIHolder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
+import lombok.Getter;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class ModularUIContainerMenu extends AbstractContainerMenu implements IModularUIHolderMenu {
+public class ModularUIContainerMenu extends AbstractContainerMenu {
     public final Inventory inventory;
     public final IContainerUIHolder uiHolder;
+    @Getter
     public final ModularUI modularUI;
-
-    // Field used by IModularUIHolderMenu to map Slots to ItemSlots
-    private final Map<Slot, ItemSlot> ldlib2$itemSlotMap = new HashMap<>();
 
     public ModularUIContainerMenu(MenuType<ModularUIContainerMenu> menuType,
                                   int windowID,
@@ -31,46 +28,11 @@ public class ModularUIContainerMenu extends AbstractContainerMenu implements IMo
         this.inventory = inventory;
         this.uiHolder = uiHolder;
         this.modularUI = uiHolder.createUI(inventory.player);
-        setModularUI(modularUI);
+        asModularUIHolderMenu().setModularUI(modularUI);
     }
 
-    // -- IModularUIHolderMenu implementation --
-
-    @Override
-    @Nullable
-    public ModularUI ldlib2$getModularUI() {
-        return modularUI;
-    }
-
-    @Override
-    @Nullable
-    public ItemSlot ldlib2$getItemSlot(Slot slot) {
-        return ldlib2$itemSlotMap.get(slot);
-    }
-
-    @Override
-    public void ldlib2$addSlot(ItemSlot itemSlot) {
-        ldlib2$itemSlotMap.put(itemSlot.getSlot(), itemSlot);
-    }
-
-    @Override
-    public void ldlib2$setModularUI(ModularUI modularUI) {
-        modularUI.setMenu(this);
-    }
-
-    /**
-     * @deprecated Use interface methods directly. Kept for backward compatibility.
-     */
-    @Deprecated
     public IModularUIHolderMenu asModularUIHolderMenu() {
-        return this;
-    }
-
-    /**
-     * Lombok-style getter for modularUI.
-     */
-    public ModularUI getModularUI() {
-        return modularUI;
+        return (IModularUIHolderMenu) this;
     }
 
     @Override

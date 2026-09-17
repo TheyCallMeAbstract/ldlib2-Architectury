@@ -1,6 +1,7 @@
 package com.lowdragmc.lowdraglib2.networking.rpc;
 
 import com.lowdragmc.lowdraglib2.LDLib2;
+import com.lowdragmc.lowdraglib2.Platform;
 import com.lowdragmc.lowdraglib2.networking.both.PacketRPCPacket;
 import com.lowdragmc.lowdraglib2.syncdata.rpc.RPCMethodMeta;
 import com.lowdragmc.lowdraglib2.utils.ReflectionUtils;
@@ -63,8 +64,12 @@ public final class RPCPacketDistributor {
 
     public void rpcToAllPlayers(String packetID, Object... args) {
         var data = getSafePacketHandler(packetID).args2Bytes(args);
-        // Send to all players on the server
-        var server = ServerLevel.class; // placeholder - actual implementation needs server reference
+        var server = Platform.getMinecraftServer();
+        if (server == null) {
+            LDLib2.LOGGER.warn("rpcToAllPlayers('{}') called with no server available; packet dropped", packetID);
+            return;
+        }
+        NetworkManager.sendToPlayers(server.getPlayerList().getPlayers(), PacketRPCPacket.of(packetID, data));
     }
 
     public void rpcToTracking(ServerLevel level, ChunkPos chunkPos, String packetID, Object... args) {

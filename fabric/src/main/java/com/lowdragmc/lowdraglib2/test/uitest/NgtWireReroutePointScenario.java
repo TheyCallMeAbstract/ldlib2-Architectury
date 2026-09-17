@@ -15,6 +15,7 @@ import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegisterClient;
 import com.lowdragmc.lowdraglib2.test.noddegraphtoolkit.TestAddNode;
 import com.lowdragmc.lowdraglib2.test.noddegraphtoolkit.TestGraph;
 import com.lowdragmc.lowdraglib2.uitest.ElementBounds;
+import com.lowdragmc.lowdraglib2.uitest.ElementRef;
 import com.lowdragmc.lowdraglib2.uitest.ScenarioBuilder;
 import com.lowdragmc.lowdraglib2.uitest.ScenarioOptions;
 import com.lowdragmc.lowdraglib2.uitest.TestContext;
@@ -321,20 +322,16 @@ public class NgtWireReroutePointScenario implements UIScenario {
         var to = new float[2];
         s.step("drag " + label + " :aim", ctx -> {
                     var sourceElement = source.apply(ctx);
-                    var bounds = ElementBounds.of(sourceElement);
+                    // The builder's own click/drag steps guard against dragging thin air; this one
+                    // resolves its own coordinates, so it makes the same fatal check through the
+                    // one shared implementation.
+                    var bounds = ScenarioBuilder.requireClickable(ctx, new ElementRef(sourceElement, label));
                     from[0] = bounds.centerX();
                     from[1] = bounds.centerY();
                     var target = destination.apply(ctx, new Vector2f(from[0], from[1]));
                     to[0] = target.x;
                     to[1] = target.y;
                     ctx.input().moveTo(from[0], from[1]);
-                    // The builder's own click/drag steps guard against dragging thin air; this one
-                    // resolves its own coordinates, so it has to make the same check itself.
-                    var hit = ctx.requireUI().hitTestAtScreen(from[0], from[1]);
-                    ctx.check("the drag starts on " + label,
-                            hit != null && (hit == sourceElement
-                                    || hit.getStructurePath().contains(sourceElement)),
-                            label, hit == null ? "none" : hit.getElementName());
                 })
                 .step("drag " + label + " :press",
                         ctx -> ctx.input().mouseDown(from[0], from[1], Keys.MOUSE_LEFT))

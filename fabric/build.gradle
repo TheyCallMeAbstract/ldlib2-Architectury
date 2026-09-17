@@ -83,6 +83,15 @@ dependencies {
     // puts its own (2.3.0) stdlib on the compile classpath, preserving NeoForge's version split.
     shadowBundle "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_stdlib_version"
 
+    // The Kotlin JVM plugin's automatic kotlin-stdlib dependency is disabled for :fabric via
+    // fabric/gradle.properties (kotlin.stdlib.default.dependency=false): otherwise it is added
+    // to the `api` configuration and published in both the POM and the .module metadata as
+    // kotlin-stdlib:2.3.0, while the shipped shadow jar already bundles 2.1.20 above. Re-add it
+    // on the compile and local-runtime classpaths only — compileOnly/localRuntime are never
+    // published, so compilation and dev/test runtime keep working.
+    compileOnly "org.jetbrains.kotlin:kotlin-stdlib:${kotlin.coreLibrariesVersion}"
+    localRuntime "org.jetbrains.kotlin:kotlin-stdlib:${kotlin.coreLibrariesVersion}"
+
     // YACL — config library for Fabric (replaces NeoForge ModConfigSpec)
     implementation "dev.isxander:yet-another-config-lib:$rootProject.yacl_version"
     compileOnly("dev.isxander:yet-another-config-lib:$rootProject.yacl_version")

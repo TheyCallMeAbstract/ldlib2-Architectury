@@ -888,7 +888,25 @@ public final class ScenarioBuilder {
      * sized to zero all look fine to a plain selector lookup.
      */
     private static ElementBounds resolveClickable(TestContext ctx, String selector) {
-        var ref = ctx.el(selector);
+        return requireClickable(ctx, ctx.el(selector));
+    }
+
+    /**
+     * Resolves an element to a rectangle and verifies it can actually be clicked, throwing rather
+     * than recording a soft failure when it cannot.
+     *
+     * <p>This is the single implementation of the guard: the named input steps and any scenario that
+     * resolves its own coordinates both go through it. A gesture aimed at an element that is
+     * occluded, clipped, off screen or not laid out would otherwise be dispatched into empty space;
+     * the step would still "pass" and the scenario would die several steps later on a misleading
+     * timeout. Rejecting the target up front keeps the failure attached to the gesture that caused
+     * it, and the report's {@link RunReport.TargetInfo} still records what was actually hit.
+     *
+     * @throws IllegalStateException if the element has no area, its centre is off screen, or a pure
+     *         hit test at its centre resolves to something else
+     */
+    public static ElementBounds requireClickable(TestContext ctx, ElementRef ref) {
+        var selector = ref.selector();
         var bounds = ref.bounds();
         var report = ctx.stepReport();
         var target = new RunReport.TargetInfo();

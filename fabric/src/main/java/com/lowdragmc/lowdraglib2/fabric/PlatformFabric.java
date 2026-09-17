@@ -2,12 +2,12 @@ package com.lowdragmc.lowdraglib2.fabric;
 
 import com.lowdragmc.lowdraglib2.Platform;
 import com.lowdragmc.lowdraglib2.fabric.client.PlatformFabricClientBridge;
+import dev.architectury.utils.GameInstance;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.core.RegistryAccess;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -65,6 +65,14 @@ public class PlatformFabric extends Platform {
 
     @Override
     protected MinecraftServer getMinecraftServerImpl() {
+        // GameInstance is Architectury's cross-loader current-server accessor: the Fabric analogue of
+        // NeoForge's ServerLifecycleHooks.getCurrentServer(). It is wired to Fabric's
+        // ServerLifecycleEvents, which is the reliable source on a dedicated/game-test server. The
+        // Architectury LifecycleEvent.SERVER_STARTING used by FabricCommonListeners is NOT fired on
+        // Fabric (EventHandlerImpl wires only SERVER_BEFORE_START/SERVER_STARTED/SERVER_STOPPING/
+        // SERVER_STOPPED), so the captured field is kept only as a fallback.
+        var current = GameInstance.getServer();
+        if (current != null) return current;
         // On a client the live server is the integrated one; there is no static hook to it.
         // Reached through a client-only bridge: naming Minecraft.getSingleplayerServer() here
         // would force the loader to resolve IntegratedServer, which a dedicated server cannot
@@ -79,10 +87,6 @@ public class PlatformFabric extends Platform {
     @Override
     protected Path getGamePathImpl() {
         return FabricLoader.getInstance().getGameDir();
-    }
-
-    public ResourceManager getResourceProvider() {
-        return null;
     }
 
     @Override
@@ -147,16 +151,27 @@ public class PlatformFabric extends Platform {
 
     @Override
     protected void executeOnServerImpl(Runnable runnable) {
-        // Fabric: no direct server access from static context
+        // Matches PlatformNeoForge (and the Platform default): only a dedicated server schedules onto
+        // its own thread. On a client the integrated server is reached through the client branch of
+        // InventoryMenuMixin; isServer() is false there, so this is deliberately a no-op.
+        if (isServer()) {
+            getMinecraftServer().execute(runnable);
+        }
     }
 
     @Override
     protected boolean isServerNotSafeImpl() {
-        return true;
+        if (isClient()) {
+            var minecraft = getMinecraftClient();
+            return minecraft == null || minecraft.getConnection() == null;
+        } else {
+            var server = getMinecraftServer();
+            return !serverSafe(server) || server.isCurrentlySaving();
+        }
     }
 
     @Override
     protected boolean serverSafeImpl(MinecraftServer server) {
-        return false;
+        return server != null && !server.isStopped() && !server.isShutdown() && server.isRunning();
     }
 }

@@ -81,6 +81,16 @@ public class Platform {
         return null;
     }
 
+    public ResourceManager getResourceProvider() {
+        if (isClient()) {
+            var minecraft = getMinecraftClient();
+            if (minecraft != null) return minecraft.getResourceManager();
+        }
+        var server = getMinecraftServer();
+        if (server != null) return server.getResourceManager();
+        return RESOURCE_MANAGER;
+    }
+
     protected RegistryAccess getFrozenRegistryImpl() {
         return getBlankRegistryAccess();
     }

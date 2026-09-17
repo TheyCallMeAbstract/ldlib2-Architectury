@@ -92,3 +92,13 @@ schema: spec-driven
 # Project context shown to AI when creating artifacts
 # Per-artifact rules customize behavior for proposals, tasks, etc.
 ```
+
+## Credits & Upstream
+
+LDLib2 and its documentation are created and maintained by **[KilaBash](https://github.com/Yefancy)** and the **[LowDragMC](https://github.com/Low-Drag-MC)** project. All credit for the library and the original documentation belongs to them.
+
+- Official NeoForge project: <https://github.com/Low-Drag-MC/LDLib2>
+- Official documentation: <https://low-drag-mc.github.io/LowDragMC-Doc/en/ldlib2/>
+- Official Discord: <https://discord.com/invite/sDdf2yD9bh>
+
+The Fabric Edition documentation site lives in [`site/`](site/README.md); it is an independent, community, Fabric-only build derived from `Low-Drag-MC/LowDragMC-Doc` (MIT) and is not affiliated with or endorsed by the original authors.

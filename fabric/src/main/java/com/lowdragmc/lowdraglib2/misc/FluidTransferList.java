@@ -1,9 +1,12 @@
 package com.lowdragmc.lowdraglib2.misc;
 
 import com.lowdragmc.lowdraglib2.LDLib2;
+import com.lowdragmc.lowdraglib2.common.io.SerializableIO;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import dev.architectury.fluid.FluidStack;
 import lombok.Setter;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -18,7 +21,7 @@ import java.util.function.Predicate;
  */
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class FluidTransferList implements IFluidHandlerModifiable {
+public class FluidTransferList implements IFluidHandlerModifiable, SerializableIO {
     public final IFluidHandler[] transfers;
     @Setter
     protected Predicate<FluidStack> filter = fluid -> true;
@@ -139,6 +142,33 @@ public class FluidTransferList implements IFluidHandlerModifiable {
             if (maxDrain <= 0) break;
         }
         return totalDrained == null ? FluidStack.empty() : totalDrained;
+    }
+
+    @Override
+    public void serialize(ValueOutput output) {
+        var list = output.childrenList("tanks");
+        for (var transfer : transfers) {
+            if (transfer instanceof SerializableIO serializable) {
+                serializable.serialize(list.addChild());
+            } else {
+                LDLib2.LOGGER.warn("[FluidTransferList] internal tank doesn't support serialization");
+            }
+        }
+    }
+
+    @Override
+    public void deserialize(ValueInput input) {
+        input.childrenList("tanks").ifPresent(tanks -> {
+            var index = 0;
+            for (var tank : tanks) {
+                if (transfers[index] instanceof SerializableIO serializable) {
+                    serializable.deserialize(tank);
+                } else {
+                    LDLib2.LOGGER.warn("[FluidTransferList] internal tank doesn't support serialization");
+                }
+                index++;
+            }
+        });
     }
 
     @Override

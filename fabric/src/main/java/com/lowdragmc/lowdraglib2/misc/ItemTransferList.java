@@ -1,7 +1,11 @@
 package com.lowdragmc.lowdraglib2.misc;
 
+import com.lowdragmc.lowdraglib2.LDLib2;
+import com.lowdragmc.lowdraglib2.common.io.SerializableIO;
 import lombok.Setter;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
@@ -13,7 +17,7 @@ import java.util.function.Predicate;
  * @date 2023/2/25
  * @implNote ItemTransferList
  */
-public class ItemTransferList implements IItemHandlerModifiable {
+public class ItemTransferList implements IItemHandlerModifiable, SerializableIO {
 
     public final IItemHandlerModifiable[] transfers;
     @Setter
@@ -109,5 +113,32 @@ public class ItemTransferList implements IItemHandlerModifiable {
             index += transfer.getSlots();
         }
         return false;
+    }
+
+    @Override
+    public void serialize(ValueOutput output) {
+        var list = output.childrenList("slots");
+        for (var transfer : transfers) {
+            if (transfer instanceof SerializableIO serializable) {
+                serializable.serialize(list.addChild());
+            } else {
+                LDLib2.LOGGER.warn("[ItemTransferList] internal slot doesn't support serialization");
+            }
+        }
+    }
+
+    @Override
+    public void deserialize(ValueInput input) {
+        input.childrenList("slots").ifPresent(slots -> {
+            var index = 0;
+            for (var slot : slots) {
+                if (transfers[index] instanceof SerializableIO serializable) {
+                    serializable.deserialize(slot);
+                } else {
+                    LDLib2.LOGGER.warn("[ItemTransferList] internal slot doesn't support serialization");
+                }
+                index++;
+            }
+        });
     }
 }

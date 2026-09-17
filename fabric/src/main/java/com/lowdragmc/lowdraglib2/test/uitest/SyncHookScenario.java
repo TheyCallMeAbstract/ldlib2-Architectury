@@ -4,12 +4,18 @@ import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.factory.PlayerUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerScreen;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Switch;
+import com.lowdragmc.lowdraglib2.networking.rpc.RPCPacket;
+import com.lowdragmc.lowdraglib2.networking.rpc.RPCPacketDistributor;
 import com.lowdragmc.lowdraglib2.registry.RegistrationEnvironment;
 import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegisterClient;
+import com.lowdragmc.lowdraglib2.syncdata.rpc.RPCSender;
 import com.lowdragmc.lowdraglib2.test.ui.TestSyncHooks;
 import com.lowdragmc.lowdraglib2.uitest.ScenarioBuilder;
 import com.lowdragmc.lowdraglib2.uitest.ScenarioOptions;
 import com.lowdragmc.lowdraglib2.uitest.UIScenario;
+
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * End-to-end coverage of the {@link com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder}
@@ -25,6 +31,20 @@ import com.lowdragmc.lowdraglib2.uitest.UIScenario;
 @LDLRegisterClient(name = "sync_hooks", group = "ldlib2", registry = UIScenario.REGISTRY,
         environment = RegistrationEnvironment.DEV_ONLY)
 public class SyncHookScenario implements UIScenario {
+
+    /**
+     * Consumer-level proof that {@link RPCPacketDistributor#rpcToAllPlayers} actually delivers:
+     * the server step below broadcasts, and this handler only ever runs on the client. If the
+     * payload is dropped (the old placeholder) the counter stays at zero and the scenario times out.
+     */
+    private static final AtomicInteger RPC_BROADCASTS = new AtomicInteger();
+    private static final AtomicReference<String> RPC_BROADCAST_PAYLOAD = new AtomicReference<>();
+
+    @RPCPacket("syncHookRpcBroadcast")
+    public static void onRpcBroadcast(RPCSender sender, String message, boolean flag) {
+        RPC_BROADCAST_PAYLOAD.set(message + ":" + flag);
+        RPC_BROADCASTS.incrementAndGet();
+    }
 
     @Override
     public void configure(ScenarioOptions options) {
@@ -117,6 +137,20 @@ public class SyncHookScenario implements UIScenario {
                 .checkServer("onRemoteSyncReceived did not fire on the server",
                         sc -> server().flagHooks.remoteReceived.get() == 0)
                 .screenshot("03_after_flag")
+
+                // S2C broadcast: the server broadcasts to every player, the client's @RPCPacket
+                // handler above is the only receiver. Exercises the full rpcToAllPlayers path.
+                .step("reset the rpc broadcast probe", ctx -> {
+                    RPC_BROADCASTS.set(0);
+                    RPC_BROADCAST_PAYLOAD.set(null);
+                })
+                .server("broadcast an rpc packet to every player", sc ->
+                        RPCPacketDistributor.rpcToAllPlayers("syncHookRpcBroadcast", "from-server", true))
+                .waitUntil("the client received the broadcast rpc", ctx -> RPC_BROADCASTS.get() > 0)
+                .checkEquals("the broadcast rpc payload round-tripped intact",
+                        "from-server:true", ctx -> RPC_BROADCAST_PAYLOAD.get())
+                .check("the broadcast was delivered exactly once", ctx -> RPC_BROADCASTS.get() == 1)
+                .screenshot("04_after_rpc_broadcast")
 
                 .closeScreen()
                 .teardown("close the container", ctx -> ctx.requirePlayer().closeContainer());

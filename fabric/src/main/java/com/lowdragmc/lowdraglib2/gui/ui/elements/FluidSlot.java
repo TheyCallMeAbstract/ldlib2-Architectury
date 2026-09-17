@@ -35,14 +35,27 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.SkipPersistedValue;
 import com.lowdragmc.lowdraglib2.utils.FluidHelper;
 import com.lowdragmc.lowdraglib2.utils.XmlUtils;
 import com.lowdragmc.lowdraglib2.misc.IFluidHandler;
+import com.lowdragmc.lowdraglib2.integration.xei.jei.LDLibJEIPlugin;
 import dev.architectury.fluid.FluidStack;
+import dev.architectury.hooks.fluid.fabric.FluidStackHooksFabric;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import mezz.jei.api.fabric.constants.FabricTypes;
+import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
+import mezz.jei.api.fabric.ingredients.fluids.JeiFluidIngredient;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import net.fabricmc.fabric.api.transfer.v1.context.ContainerItemContext;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
+import net.fabricmc.fabric.api.transfer.v1.storage.StorageUtil;
+import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import org.w3c.dom.Element;
@@ -161,6 +174,11 @@ public class FluidSlot extends BindableUIElement<FluidStack> {
         getStyle().backgroundTexture(Sprites.RECT_DARK);
         addEventListener(UIEvents.HOVER_TOOLTIPS, this::onHoverTooltips);
         addEventListener(UIEvents.MOUSE_DOWN, this::onMouseDown);
+        if (LDLib2.isClient() && !LDLib2.isServer()) {
+            if (LDLib2.isJeiLoaded()) {
+                JEISupport.clickableIngredient(this);
+            }
+        }
         clickEvent = addRPCEvent(RPCEventBuilder.simple(Boolean.class, this::tryClickContainer));
 
         amountLabel.addClass("__fluid-slot_amount-label__");
@@ -213,17 +231,23 @@ public class FluidSlot extends BindableUIElement<FluidStack> {
     }
 
     public FluidSlot xeiPhantom() {
-        // todo xei — Fabric JEI/REI/EMI integration pending
+        if (LDLib2.isJeiLoaded()) {
+            JEISupport.ghostIngredient(this);
+        }
         return this;
     }
 
     public FluidSlot xeiRecipeIngredient(IngredientIO io) {
-        // todo xei
+        if (LDLib2.isJeiLoaded()) {
+            JEISupport.recipeIngredient(this, io);
+        }
         return this;
     }
 
     public FluidSlot xeiRecipeIngredient(IngredientIO io, Supplier<Stream<FluidStack>> allPossibleFluids) {
-        // todo xei
+        if (LDLib2.isJeiLoaded()) {
+            JEISupport.recipeIngredient(this, io, allPossibleFluids);
+        }
         return this;
     }
 
@@ -232,21 +256,135 @@ public class FluidSlot extends BindableUIElement<FluidStack> {
     }
 
     public FluidSlot xeiRecipeSlot(IngredientIO io, float chance) {
-        // todo xei
+        if (LDLib2.isJeiLoaded()) {
+            JEISupport.recipeSlot(this, io);
+        }
         return this;
     }
 
     public FluidSlot xeiRecipeSlot(IngredientIO io, float chance, int amount, Supplier<Stream<FluidStack>> allPossibleFluids) {
-        // todo xei
+        if (LDLib2.isJeiLoaded()) {
+            JEISupport.recipeSlot(this, io, allPossibleFluids);
+        }
         return this;
     }
 
     /**
-     * Fabric port: container interaction (FluidUtil, Capabilities, Transaction) is NeoForge-specific.
-     * Stubbed — will be reimplemented with Fabric Transfer API when that subsystem is ported.
+     * Container interaction for the item held on the cursor. NeoForge ports this through
+     * FluidUtil + Capabilities; Fabric's equivalent is the Fabric Transfer API's
+     * {@link ContainerItemContext} / {@link FluidStorage#ITEM}, which moves fluid and performs
+     * the bucket &lt;-&gt; filled-bucket item exchange atomically through the cursor slot.
+     * The {@code IFluidHandler} simulated/executed actions below mirror FluidUtil's
+     * {@code simulate / execute} two-phase pattern.
      */
     private void tryClickContainer(boolean isShiftKeyDown) {
-        // TODO: Implement with Fabric Transfer API
+        if (boundHandler == null) return;
+        var mui = getModularUI();
+        if (mui == null || mui.getMenu() == null) return;
+        var player = mui.player;
+        if (player == null) return;
+        clickContainer(boundHandler, tankIndex, player, mui.getMenu(), isShiftKeyDown, allowClickFilled, allowClickDrained);
+    }
+
+    /**
+     * Static, UI-independent core of {@link #tryClickContainer(boolean)}, so the exact interaction can
+     * be exercised without a live screen. Returns whether any fluid was moved, so callers/tests can tell
+     * a successful exchange from a no-op.
+     */
+    public static boolean clickContainer(IFluidHandler handler, int tankIndex, Player player, AbstractContainerMenu menu,
+                                  boolean isShiftKeyDown, boolean allowClickFilled, boolean allowClickDrained) {
+        if (handler == null) return false;
+        if (tankIndex < 0 || tankIndex >= handler.getTanks()) return false;
+        var carried = menu.getCarried();
+        if (carried.isEmpty()) return false;
+
+        var context = ContainerItemContext.ofPlayerCursor(player, menu);
+        var itemStorage = FluidStorage.ITEM.find(carried, context);
+        if (itemStorage == null) return false;
+
+        int maxAttempts = isShiftKeyDown ? carried.getCount() : 1;
+        var initialFluid = handler.getFluidInTank(tankIndex);
+        if (allowClickFilled && initialFluid.getAmount() > 0) {
+            var variant = FluidStackHooksFabric.toFabric(initialFluid);
+            long totalFilled = 0;
+            for (int i = 0; i < maxAttempts; i++) {
+                long moved = moveTankToItem(handler, itemStorage, variant, initialFluid.getAmount());
+                if (moved <= 0) break;
+                totalFilled += moved;
+            }
+            if (totalFilled > 0) {
+                playSound(player, FluidHelper.getFillSound(initialFluid));
+                return true;
+            }
+        }
+
+        if (allowClickDrained) {
+            long totalEmptied = 0;
+            for (int i = 0; i < maxAttempts; i++) {
+                long moved = moveItemToTank(handler, itemStorage);
+                if (moved <= 0) break;
+                totalEmptied += moved;
+            }
+            if (totalEmptied > 0) {
+                playSound(player, FluidHelper.getEmptySound(handler.getFluidInTank(tankIndex)));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Fills the cursor item from this slot's tank (equivalent to FluidUtil.tryFillContainer).
+     */
+    private static long moveTankToItem(IFluidHandler handler, Storage<FluidVariant> itemStorage, FluidVariant variant, long maxAmount) {
+        long accepted;
+        try (var tx = Transaction.openOuter()) {
+            accepted = itemStorage.insert(variant, maxAmount, tx);
+            // deliberately not committed: this is the simulated pass
+        }
+        if (accepted <= 0) return 0;
+        var drainable = handler.drain(FluidStackHooksFabric.fromFabric(variant, accepted), IFluidHandler.FluidAction.SIMULATE).getAmount();
+        long amount = Math.min(accepted, drainable);
+        if (amount <= 0) return 0;
+        try (var tx = Transaction.openOuter()) {
+            long inserted = itemStorage.insert(variant, amount, tx);
+            if (inserted <= 0) return 0;
+            var drained = handler.drain(FluidStackHooksFabric.fromFabric(variant, inserted), IFluidHandler.FluidAction.EXECUTE);
+            if (drained.getAmount() == inserted) {
+                tx.commit();
+                return inserted;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Empties the cursor item into this slot's tank (equivalent to FluidUtil.tryEmptyContainer).
+     */
+    private static long moveItemToTank(IFluidHandler handler, Storage<FluidVariant> itemStorage) {
+        try (var tx = Transaction.openOuter()) {
+            var content = StorageUtil.findExtractableContent(itemStorage, tx);
+            if (content == null || content.amount() <= 0) return 0;
+            var resource = content.resource();
+            var stack = FluidStackHooksFabric.fromFabric(resource, content.amount());
+            long accepted = handler.fill(stack, IFluidHandler.FluidAction.SIMULATE);
+            long amount = Math.min(content.amount(), accepted);
+            if (amount <= 0) return 0;
+            long extracted = itemStorage.extract(resource, amount, tx);
+            if (extracted <= 0) return 0;
+            long filled = handler.fill(FluidStackHooksFabric.fromFabric(resource, extracted), IFluidHandler.FluidAction.EXECUTE);
+            if (filled == extracted) {
+                tx.commit();
+                return extracted;
+            }
+        }
+        return 0;
+    }
+
+    private static void playSound(Player player, @Nullable SoundEvent sound) {
+        if (sound == null) return;
+        player.level().playSound(null, player.position().x, player.position().y + 0.5, player.position().z,
+                sound, SoundSource.BLOCKS, 1.0F, 1.0F);
     }
 
     protected void onMouseDown(UIEvent event) {
@@ -398,30 +536,56 @@ public class FluidSlot extends BindableUIElement<FluidStack> {
         context.drawTexture(this.getSlotStyle().hoverOverlay(), contentX, contentY, contentWidth, contentHeight);
     }
 
-    // region XEI Support — Fabric stubs
+    // region XEI Support
+    // Fabric JEI fluid ingredients are FabricTypes.FLUID_STACK (Fluid, IJeiFluidIngredient), not
+    // Architectury FluidStack. FluidStackHooksFabric carries the components both ways, so the
+    // bridge is a real conversion rather than a lossy shim.
     public static class JEISupport {
+        private static IJeiFluidIngredient toJei(FluidStack fluidStack) {
+            return new JeiFluidIngredient(FluidStackHooksFabric.toFabric(fluidStack), fluidStack.getAmount());
+        }
+
+        private static FluidStack fromJei(IJeiFluidIngredient ingredient) {
+            return FluidStackHooksFabric.fromFabric(ingredient.getFluidVariant(), ingredient.getAmount());
+        }
+
         public static void clickableIngredient(FluidSlot fluidSlot) {
-            // TODO: Fabric JEI integration
+            LDLibJEIPlugin.clickableIngredient(fluidSlot, () -> {
+                if (!fluidSlot.allowXEILookup) return null;
+                var current = fluidSlot.getValue();
+                if (current.isEmpty()) return null;
+                return LDLibJEIPlugin.createTypedIngredient(FabricTypes.FLUID_STACK, toJei(current)).orElse(null);
+            });
         }
 
         public static void ghostIngredient(FluidSlot fluidSlot) {
-            // TODO: Fabric JEI integration
+            LDLibJEIPlugin.ghostIngredient(fluidSlot, FabricTypes.FLUID_STACK,
+                    ingredient -> true,
+                    ingredient -> fluidSlot.setValue(fromJei(ingredient)));
         }
 
         public static void recipeIngredient(FluidSlot fluidSlot, IngredientIO io) {
-            // TODO: Fabric JEI integration
+            recipeIngredient(fluidSlot, io, () -> Stream.of(fluidSlot.getFluid()));
         }
 
         public static void recipeIngredient(FluidSlot fluidSlot, IngredientIO io, Supplier<Stream<FluidStack>> allPossibleFluids) {
-            // TODO: Fabric JEI integration
+            LDLibJEIPlugin.recipeIngredient(fluidSlot, io, () -> allPossibleFluids.get()
+                    .map(fluidStack -> LDLibJEIPlugin.createTypedIngredient(FabricTypes.FLUID_STACK, toJei(fluidStack)))
+                    .flatMap(Optional::stream)
+                    .toList());
         }
 
         public static void recipeSlot(FluidSlot fluidSlot, IngredientIO io) {
-            // TODO: Fabric JEI integration
+            recipeSlot(fluidSlot, io, () -> Stream.of(fluidSlot.getFluid()));
         }
 
         public static void recipeSlot(FluidSlot fluidSlot, IngredientIO io, Supplier<Stream<FluidStack>> allPossibleFluids) {
-            // TODO: Fabric JEI integration
+            var updater = LDLibJEIPlugin.recipeSlot(
+                    fluidSlot, io, FabricTypes.FLUID_STACK,
+                    () -> allPossibleFluids.get().map(JEISupport::toJei),
+                    ingredient -> fluidSlot.setFluid(ingredient == null ? FluidStack.empty() : fromJei(ingredient), false));
+            fluidSlot.registerValueListener(fluidStack ->
+                    updater.accept(fluidStack.isEmpty() ? null : toJei(fluidStack)));
         }
     }
     // endregion

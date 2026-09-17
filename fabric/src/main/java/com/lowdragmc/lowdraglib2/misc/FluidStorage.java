@@ -1,10 +1,13 @@
 package com.lowdragmc.lowdraglib2.misc;
 
 import com.google.common.util.concurrent.Runnables;
+import com.lowdragmc.lowdraglib2.common.io.SerializableIO;
 import com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware;
 import dev.architectury.fluid.FluidStack;
 import lombok.Getter;
 import lombok.Setter;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 import java.util.function.Predicate;
 
@@ -13,7 +16,7 @@ import java.util.function.Predicate;
  * NeoForge's FluidTank is a concrete class with no Architectury equivalent.
  * This implements IFluidHandlerModifiable directly with the same semantics.
  */
-public class FluidStorage implements IFluidHandlerModifiable, IContentChangeAware {
+public class FluidStorage implements IFluidHandlerModifiable, IContentChangeAware, SerializableIO {
     @Getter
     @Setter
     private Runnable onContentsChanged = Runnables.doNothing();
@@ -131,6 +134,18 @@ public class FluidStorage implements IFluidHandlerModifiable, IContentChangeAwar
     @Override
     public boolean supportsDrain(int tank) {
         return true;
+    }
+
+    @Override
+    public void serialize(ValueOutput output) {
+        if (!fluid.isEmpty()) {
+            output.store("Fluid", FluidStack.CODEC, fluid);
+        }
+    }
+
+    @Override
+    public void deserialize(ValueInput input) {
+        this.fluid = input.read("Fluid", FluidStack.CODEC).orElse(FluidStack.empty());
     }
 
     public FluidStorage copy() {
