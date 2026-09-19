@@ -4,7 +4,7 @@ A modern Minecraft modding library for UI, rendering, synchronization, persisten
 
 ## Project Restructure Summary
 
-This repository is a fork of LDLib2 redesigned for NeoForge 26.1, focusing on UI, rendering, synchronization, persistence, and in-game editors.
+This repository is a fork of LDLib2 redesigned to work on Fabric 26.1.2, focusing on UI, rendering, synchronization, persistence, and in-game editor features the original mod offers.
 
 
 ### How to Build
