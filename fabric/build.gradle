@@ -78,7 +78,7 @@ dependencies {
     // not published as a Maven runtime dependency: taffy ships no fabric.mod.json, so Fabric
     // Loader cannot declare or resolve it, and a jar dropped into mods/ has no POM resolution
     // at all. Shipping it transitively-only caused NoClassDefFoundError: TaffyDisplay for
-    // every non-Gradle consumer. Modelled on the kotlin-stdlib block below: shadowBundle embeds
+    // every non-Gradle consumer. Modelled on the fabric-language-kotlin block below: shadowBundle embeds
     // the classes, compileOnly/localRuntime keep it on the compile and dev-runtime classpaths
     // without adding it back to the published POM/.module metadata.
     // transitive = false is load-bearing: taffy declares it.unimi.dsi:fastutil:8.5.12 at runtime,
@@ -89,18 +89,14 @@ dependencies {
     compileOnly "dev.vfyjxf:taffy:$rootProject.taffy_version"
     localRuntime "dev.vfyjxf:taffy:$rootProject.taffy_version"
 
-    // kotlin-stdlib: NeoForge ships it via jarJar at kotlin_stdlib_version (neoforge/build.gradle:107-109,
-    // embedded as META-INF/jarjar/kotlin-stdlib-2.1.20.jar). Shadow is Fabric's analogue here, so the
-    // stdlib is listed explicitly in shadowBundle to land inside the Fabric jar. The Kotlin plugin still
-    // puts its own (2.3.0) stdlib on the compile classpath, preserving NeoForge's version split.
-    shadowBundle "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_stdlib_version"
+    implementation "net.fabricmc:fabric-language-kotlin:1.13.11+kotlin.2.3.21"
 
     // The Kotlin JVM plugin's automatic kotlin-stdlib dependency is disabled for :fabric via
     // fabric/gradle.properties (kotlin.stdlib.default.dependency=false): otherwise it is added
     // to the `api` configuration and published in both the POM and the .module metadata as
-    // kotlin-stdlib:2.3.0, while the shipped shadow jar already bundles 2.1.20 above. Re-add it
-    // on the compile and local-runtime classpaths only — compileOnly/localRuntime are never
-    // published, so compilation and dev/test runtime keep working.
+    // kotlin-stdlib. Re-add it on the compile and local-runtime classpaths only —
+    // compileOnly/localRuntime are never published, so compilation and dev/test runtime keep
+    // working.
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib:${kotlin.coreLibrariesVersion}"
     localRuntime "org.jetbrains.kotlin:kotlin-stdlib:${kotlin.coreLibrariesVersion}"
 
