@@ -19,10 +19,6 @@ This repository is a fork of LDLib2 redesigned to work on Fabric 26.1.2, focusin
 ./gradlew :fabric:build
 ```
 
-### Author
-
-`TheyCallMeAbstract <231887419+TheyCallMeAbstract@users.noreply.github.com>`
-
 
 ## Credits & Upstream
 
